@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MyExpensesMonitor",
-    "slug": "MyExpensesMonitor",
+    "name": "مصروفاتي",
+    "slug": "myexpensesmonitor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,10 +20,23 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "READ_SMS"
+      ],
+      "package": "com.myexpensesmonitor.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b3627a58-f5be-4698-aabf-26e18c0d51dd"
+      }
     }
   }
 }

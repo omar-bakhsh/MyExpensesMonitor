@@ -1,20 +1,32 @@
+import React, { useEffect } from 'react';
+import AppNavigator from './src/navigation/AppNavigator';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from './src/services/notificationService';
 
 export default function App() {
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+
+    // Listeners
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification Received:', notification);
+    });
+
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification Response:', response);
+    });
+
+    return () => {
+      subscription.remove();
+      responseSubscription.remove();
+    };
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
+    <>
+      <AppNavigator />
       <StatusBar style="auto" />
-    </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
