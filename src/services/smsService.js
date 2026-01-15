@@ -63,6 +63,15 @@ export const parseTransactionFromSMS = (smsText, sender) => {
         }
     }
 
+    // Extract Card Last 4 digits
+    // Supports formats like: ...1234, *1234, card ending 1234, بطاقة تنتهي بـ 1234
+    const cardRegex = /(?:\.|\*|ending in|ending|بطاقة|تنتهي بـ)\s*(\d{4})/i;
+    const cardMatch = smsText.match(cardRegex);
+    let cardLast4 = null;
+    if (cardMatch) {
+        cardLast4 = cardMatch[1];
+    }
+
     // If no amount found, it's probably not a transaction we care about
     if (!amount) return null;
 
@@ -103,6 +112,8 @@ export const parseTransactionFromSMS = (smsText, sender) => {
         merchant: merchant.trim(),
         date: new Date().toISOString(), // We'll overwrite this with actual SMS date
         category,
+        cardLast4,
+        bankName: sender,
         originalText: smsText
     };
 };
@@ -175,33 +186,35 @@ export const scanSMSForTransactions = async (userBanks = []) => {
 
         const transactions = [];
 
-        messages.forEach(msg => {
-            // Check if message is relevant
-            const body = msg.body;
-            const address = msg.address || ''; // Sender can be null sometimes
+        if (Array.isArray(messages)) {
+            messages.forEach(msg => {
+                if (!msg) return;
+                // Check if message is relevant
+                const body = msg.body;
+                const address = msg.address || ''; // Sender can be null sometimes
 
-            // 1. Is it from a known bank sender?
-            const isBankSender = validSenders.some(sender => address.toLowerCase().includes(sender.toLowerCase()));
+                // 1. Is it from a known bank sender?
+                const isBankSender = validSenders.some(sender => address.toLowerCase().includes(sender.toLowerCase()));
 
-            // 2. Does it have transaction keywords?
-            const hasKeywords = TRANSACTION_KEYWORDS.some(kw => body.toLowerCase().includes(kw));
+                // 2. Does it have transaction keywords?
+                const hasKeywords = TRANSACTION_KEYWORDS.some(kw => body.toLowerCase().includes(kw));
 
-            if (isBankSender || hasKeywords) {
-                const parsed = parseTransactionFromSMS(body, address);
+                if (isBankSender || hasKeywords) {
+                    const parsed = parseTransactionFromSMS(body, address);
 
-                if (parsed && parsed.amount) {
-                    transactions.push({
-                        id: `sms-${msg._id}`,
-                        ...parsed,
-                        date: new Date(msg.date).toISOString(), // Use actual SMS date
-                        source: 'SMS',
-                    });
+                    if (parsed && parsed.amount) {
+                        transactions.push({
+                            id: `sms-${msg._id}`,
+                            ...parsed,
+                            date: new Date(msg.date).toISOString(), // Use actual SMS date
+                            source: 'SMS',
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return transactions;
-
     } catch (error) {
         console.error('Error scanning SMS:', error);
         Alert.alert('Error', 'Failed to scan SMS messages');

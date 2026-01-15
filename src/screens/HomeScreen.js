@@ -13,26 +13,44 @@ import CategoryStats from '../components/CategoryStats';
 import FilterModal from '../components/FilterModal';
 
 const HomeScreen = ({ navigation }) => {
-    const { budget, transactions, addTransaction, budgetAlerts, searchTransactions, filterTransactions } = useExpensesStore();
+    const { budget, transactions: rawTransactions, addTransaction, budgetAlerts, searchTransactions, filterTransactions } = useExpensesStore();
     const { settings, updateSettings } = useUserStore();
     const { t, isRTL } = useTranslation();
     const [isScanning, setIsScanning] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const transactions = rawTransactions || [];
     const [filteredTransactions, setFilteredTransactions] = useState(transactions);
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [activeFilters, setActiveFilters] = useState({});
+    const [selectedAccountFilter, setSelectedAccountFilter] = useState(null);
 
-    const totalSpent = transactions.reduce((acc, t) => acc + t.amount, 0);
+    const totalSpent = transactions.reduce((acc, t) => acc + (t.amount || 0), 0);
     const remaining = budget - totalSpent;
 
     // Check budget alert
-    const budgetPercentage = (totalSpent / budget) * 100;
-    const shouldShowAlert = budgetAlerts.general.enabled && budgetPercentage >= 50;
+    const budgetPercentage = budget > 0 ? (totalSpent / budget) * 100 : 0;
+    const shouldShowAlert = budgetAlerts?.general?.enabled && budgetPercentage >= 50;
     const alertLevel = budgetPercentage >= 90 ? 'danger' : budgetPercentage >= 75 ? 'warning' : 'info';
+
+    // Auto-scan SMS on mount
+    React.useEffect(() => {
+        if (settings?.pushNotificationsEnabled) {
+            handleScanSMS(false); // background scan
+        }
+    }, []);
 
     // Update filtered transactions when search or filters change
     React.useEffect(() => {
         let results = transactions;
+
+        // Apply account filter (Bank/Card)
+        if (selectedAccountFilter) {
+            if (selectedAccountFilter.type === 'bank') {
+                results = results.filter(t => t.bankName === selectedAccountFilter.value);
+            } else if (selectedAccountFilter.type === 'card') {
+                results = results.filter(t => t.cardLast4 === selectedAccountFilter.value);
+            }
+        }
 
         // Apply advanced filters first
         if (Object.keys(activeFilters).length > 0) {
@@ -60,20 +78,22 @@ const HomeScreen = ({ navigation }) => {
         setActiveFilters(filters);
     };
 
-    const handleScanSMS = async () => {
-        setIsScanning(true);
+    const handleScanSMS = async (isManual = true) => {
+        if (isManual) setIsScanning(true);
 
         try {
             // Check if permission was already granted
-            if (!settings.smsPermissionGranted) {
+            if (!settings?.smsPermissionGranted) {
                 const granted = await requestSMSPermission();
                 if (!granted) {
-                    Alert.alert(
-                        t('permissionRequired') || 'Permission Required',
-                        t('smsPermissionMessage') || 'SMS permission is required to scan transaction messages.',
-                        [{ text: 'OK' }]
-                    );
-                    setIsScanning(false);
+                    if (isManual) {
+                        Alert.alert(
+                            t('permissionRequired') || 'Permission Required',
+                            t('smsPermissionMessage') || 'SMS permission is required to scan transaction messages.',
+                            [{ text: 'OK' }]
+                        );
+                    }
+                    if (isManual) setIsScanning(false);
                     return;
                 }
                 updateSettings({ smsPermissionGranted: true });
@@ -82,33 +102,37 @@ const HomeScreen = ({ navigation }) => {
             // Scan SMS for transactions
             // Pass the list of user's enabled banks to filter messages appropriately
             const { banks } = useExpensesStore.getState();
-            const scannedTransactions = await scanSMSForTransactions(banks);
+            const scannedTransactions = await scanSMSForTransactions(banks || []);
 
-            if (scannedTransactions.length === 0) {
+            if (scannedTransactions.length > 0) {
+                // Add all scanned transactions
+                scannedTransactions.forEach(tx => addTransaction(tx));
+
+                if (isManual) {
+                    Alert.alert(
+                        t('success') || 'Success',
+                        `${scannedTransactions.length} ${t('transactionsImported') || 'transactions imported from SMS'}`,
+                        [{ text: 'OK' }]
+                    );
+                }
+            } else if (isManual) {
                 Alert.alert(
                     t('noTransactionsFound') || 'No Transactions Found',
                     t('noSmsTransactions') || 'No bank transaction messages were found in your SMS.',
                     [{ text: 'OK' }]
                 );
-            } else {
-                // Add all scanned transactions
-                scannedTransactions.forEach(tx => addTransaction(tx));
-
-                Alert.alert(
-                    t('success') || 'Success',
-                    `${scannedTransactions.length} ${t('transactionsImported') || 'transactions imported from SMS'}`,
-                    [{ text: 'OK' }]
-                );
             }
         } catch (error) {
             console.error('SMS scan error:', error);
-            Alert.alert(
-                t('error') || 'Error',
-                t('smsScanError') || 'Failed to scan SMS messages. Please try again.',
-                [{ text: 'OK' }]
-            );
+            if (isManual) {
+                Alert.alert(
+                    t('error') || 'Error',
+                    t('smsScanError') || 'Failed to scan SMS messages. Please try again.',
+                    [{ text: 'OK' }]
+                );
+            }
         } finally {
-            setIsScanning(false);
+            if (isManual) setIsScanning(false);
         }
     };
 
@@ -128,16 +152,39 @@ const HomeScreen = ({ navigation }) => {
 
                 {/* Budget Summary Card */}
                 <Card style={styles.budgetCard}>
-                    <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalBalance')}</Text>
-                    <Text style={[styles.balance, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(remaining)}</Text>
-                    <View style={[styles.row, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={[styles.summaryHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View>
-                            <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('budget')}</Text>
-                            <Text style={[styles.value, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(budget)}</Text>
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalBalance')}</Text>
+                            <Text style={[styles.balance, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(remaining)}</Text>
                         </View>
-                        <View>
-                            <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('spent')}</Text>
-                            <Text style={[styles.valueWarning, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(totalSpent)}</Text>
+                        <TouchableOpacity
+                            style={styles.editIncomeBtn}
+                            onPress={() => navigation.navigate('Income')}
+                        >
+                            <Ionicons name="pencil-outline" size={18} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.divider} />
+
+                    <View style={[styles.row, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={styles.summaryItem}>
+                            <View style={[styles.summaryIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                <Ionicons name="arrow-down" size={16} color="#FFF" />
+                            </View>
+                            <View>
+                                <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalIncome')}</Text>
+                                <Text style={[styles.value, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(budget)}</Text>
+                            </View>
+                        </View>
+                        <View style={styles.summaryItem}>
+                            <View style={[styles.summaryIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                <Ionicons name="arrow-up" size={16} color="#FFF" />
+                            </View>
+                            <View>
+                                <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('spent')}</Text>
+                                <Text style={[styles.valueWarning, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(totalSpent)}</Text>
+                            </View>
                         </View>
                     </View>
                 </Card>
@@ -188,6 +235,100 @@ const HomeScreen = ({ navigation }) => {
                             </View>
                         </View>
                     </Card>
+                )}
+
+                {/* Spending by Bank/Card Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left', marginBottom: 0 }]}>
+                        {t('walletsAndBanks')}
+                    </Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('BankSelection')}>
+                        <Text style={styles.viewAllText}>{t('edit')}</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.bankStatsList, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                >
+                    {/* All Transactions Card */}
+                    <TouchableOpacity
+                        style={[styles.bankStatCard, !selectedAccountFilter && styles.activeStatCard]}
+                        onPress={() => setSelectedAccountFilter(null)}
+                    >
+                        <View style={[styles.bankStatIcon, { backgroundColor: COLORS.primary + '20' }]}>
+                            <Ionicons name="apps" size={20} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.bankStatName}>{isRTL ? 'الكل' : 'All'}</Text>
+                        <Text style={styles.bankStatAmount}>{formatCurrency(totalSpent)}</Text>
+                    </TouchableOpacity>
+
+                    {/* Dynamic Bank Cards */}
+                    {Object.entries(
+                        (transactions || []).reduce((acc, tx) => {
+                            const bank = tx.bankName || (isRTL ? 'غير معروف' : 'Unknown');
+                            acc[bank] = (acc[bank] || 0) + (tx.amount || 0);
+                            return acc;
+                        }, {})
+                    ).map(([bankName, amount]) => (
+                        <TouchableOpacity
+                            key={bankName}
+                            style={[
+                                styles.bankStatCard,
+                                selectedAccountFilter?.type === 'bank' && selectedAccountFilter?.value === bankName && styles.activeStatCard
+                            ]}
+                            onPress={() => setSelectedAccountFilter({ type: 'bank', value: bankName })}
+                        >
+                            <View style={[styles.bankStatIcon, { backgroundColor: COLORS.border }]}>
+                                <Ionicons name="card-outline" size={20} color={COLORS.textSecondary} />
+                            </View>
+                            <Text style={styles.bankStatName} numberOfLines={1}>{bankName}</Text>
+                            <Text style={styles.bankStatAmount}>{formatCurrency(amount)}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
+                {/* Spending by Cards Section */}
+                {transactions.some(tx => tx?.cardLast4) && (
+                    <View style={{ marginTop: SPACING.m, marginBottom: SPACING.m }}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left', marginBottom: 0 }]}>
+                                {t('cardSpending')}
+                            </Text>
+                        </View>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={[styles.bankStatsList, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                        >
+                            {Object.entries(
+                                (transactions || []).reduce((acc, tx) => {
+                                    if (tx?.cardLast4) {
+                                        const card = tx.cardLast4;
+                                        acc[card] = (acc[card] || 0) + (tx.amount || 0);
+                                    }
+                                    return acc;
+                                }, {})
+                            ).map(([cardNum, amount]) => (
+                                <TouchableOpacity
+                                    key={cardNum}
+                                    style={[
+                                        styles.bankStatCard,
+                                        styles.cardStatCard,
+                                        selectedAccountFilter?.type === 'card' && selectedAccountFilter?.value === cardNum && styles.activeStatCard
+                                    ]}
+                                    onPress={() => setSelectedAccountFilter({ type: 'card', value: cardNum })}
+                                >
+                                    <View style={[styles.bankStatIcon, { backgroundColor: '#1E293B' }]}>
+                                        <Ionicons name="card" size={20} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.bankStatName}>**** {cardNum}</Text>
+                                    <Text style={styles.bankStatAmount}>{formatCurrency(amount)}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
                 )}
 
                 {/* Search Bar */}
@@ -343,6 +484,34 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    summaryHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    editIncomeBtn: {
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 10,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        marginVertical: SPACING.m,
+    },
+    summaryItem: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.s,
+    },
+    summaryIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     actionsGrid: {
         gap: SPACING.m,
         marginBottom: SPACING.l,
@@ -444,6 +613,58 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: COLORS.textSecondary,
         marginTop: 2,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: SPACING.m,
+        marginTop: SPACING.s,
+    },
+    viewAllText: {
+        color: COLORS.primary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    bankStatsList: {
+        gap: SPACING.m,
+        paddingBottom: SPACING.s,
+    },
+    bankStatCard: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: SPACING.m,
+        width: 130,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        alignItems: 'center',
+    },
+    cardStatCard: {
+        backgroundColor: '#F8FAFC',
+    },
+    bankStatIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: SPACING.s,
+    },
+    bankStatName: {
+        fontSize: 12,
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    bankStatAmount: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    activeStatCard: {
+        borderColor: COLORS.primary,
+        borderWidth: 2,
+        backgroundColor: COLORS.primary + '05',
     },
 });
 

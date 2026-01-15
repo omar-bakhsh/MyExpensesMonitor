@@ -3,13 +3,15 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 // Configure how notifications are handled when the app is in foreground
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-    }),
-});
+if (Notifications && Notifications.setNotificationHandler) {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+        }),
+    });
+}
 
 /**
  * Register for Push Notifications
@@ -18,10 +20,10 @@ Notifications.setNotificationHandler({
 export async function registerForPushNotificationsAsync() {
     let token;
 
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && Notifications.setNotificationChannelAsync) {
         await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
+            importance: Notifications.AndroidImportance?.MAX || 4,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
         });
@@ -31,7 +33,7 @@ export async function registerForPushNotificationsAsync() {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
 
-        if (existingStatus !== 'granted') {
+        if (existingStatus !== 'granted' && Notifications.requestPermissionsAsync) {
             const { status } = await Notifications.requestPermissionsAsync();
             finalStatus = status;
         }
@@ -42,9 +44,10 @@ export async function registerForPushNotificationsAsync() {
 
         // Get the token (for remote push) - currently we mostly use local
         try {
-            // Attempt to get token - if projectId is missing in app.json, this might throw
-            // but we catch it below.
-            token = (await Notifications.getExpoPushTokenAsync()).data;
+            if (Notifications.getExpoPushTokenAsync) {
+                const expoToken = await Notifications.getExpoPushTokenAsync();
+                token = expoToken?.data;
+            }
         } catch (innerError) {
             // Suppress validation error for dummy projectId in dev/local mode
             if (!innerError.message.includes('VALIDATION_ERROR')) {
@@ -65,17 +68,20 @@ export async function registerForPushNotificationsAsync() {
  * @param {number} seconds - seconds from now
  */
 export async function scheduleNotification(title, body, seconds = 1) {
-    await Notifications.scheduleNotificationAsync({
-        content: {
-            title,
-            body,
-            sound: true,
-        },
-        trigger: {
-            seconds,
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        },
-    });
+    if (!Notifications || !Notifications.scheduleNotificationAsync) return;
+    try {
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title,
+                body,
+                sound: true,
+            },
+            trigger: {
+                seconds,
+                type: Notifications.SchedulableTriggerInputTypes?.TIME_INTERVAL || 'timeInterval',
+            },
+        });
+    } catch (e) { console.log('Notification Err:', e); }
 }
 
 /**
@@ -84,28 +90,33 @@ export async function scheduleNotification(title, body, seconds = 1) {
  * @param {number} minute 
  */
 export async function scheduleDailyReminder(hour = 20, minute = 0) {
+    if (!Notifications || !Notifications.scheduleNotificationAsync) return;
     // Cancel existing reminders first to avoid duplicates
     await cancelAllNotifications();
 
-    await Notifications.scheduleNotificationAsync({
-        content: {
-            title: "Daily Expense Check 💸",
-            body: "Don't forget to log your expenses for today!",
-        },
-        trigger: {
-            hour,
-            minute,
-            repeats: true,
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        },
-    });
+    try {
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: "Daily Expense Check 💸",
+                body: "Don't forget to log your expenses for today!",
+            },
+            trigger: {
+                hour,
+                minute,
+                repeats: true,
+                type: Notifications.SchedulableTriggerInputTypes?.DAILY || 'daily',
+            },
+        });
+    } catch (e) { console.log('Daily Reminder Err:', e); }
 }
 
 /**
  * Cancel all scheduled notifications
  */
 export async function cancelAllNotifications() {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    if (Notifications && Notifications.cancelAllScheduledNotificationsAsync) {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+    }
 }
 
 export default {

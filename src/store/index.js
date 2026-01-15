@@ -10,6 +10,9 @@ export const useExpensesStore = create(
             transactions: [],
             uncategorized: [],
             budget: 5000,
+            incomeSources: [
+                { id: '1', type: 'salary', amount: 5000, note: '' }
+            ],
             banks: [],
             cards: [],
             budgetAlerts: {
@@ -23,32 +26,57 @@ export const useExpensesStore = create(
             },
             savingsGoals: [],
 
+            setIncomeSources: (sources) => set((state) => {
+                const totalIncome = sources.reduce((acc, s) => acc + parseFloat(s.amount || 0), 0);
+                const currentAlerts = state.budgetAlerts || { general: { enabled: true, limit: 5000, thresholds: [50, 75, 90, 100], currentSpent: 0 }, categories: {} };
+                return {
+                    incomeSources: sources,
+                    budget: totalIncome,
+                    budgetAlerts: {
+                        ...currentAlerts,
+                        general: {
+                            ...(currentAlerts.general || {}),
+                            limit: totalIncome
+                        }
+                    }
+                };
+            }),
+
             addTransaction: (transaction) => set((state) => {
+                // Prevent duplicates if transaction has an ID (like SMS transactions)
+                if (transaction.id && state.transactions.some(t => t.id === transaction.id)) {
+                    return state;
+                }
+
                 const newTransactions = [transaction, ...state.transactions];
                 // Update budget alert current spent
                 const totalSpent = newTransactions.reduce((acc, t) => acc + t.amount, 0);
+                const currentAlerts = state.budgetAlerts || { general: { enabled: true, limit: state.budget || 5000, thresholds: [50, 75, 90, 100], currentSpent: 0 }, categories: {} };
                 return {
                     transactions: newTransactions,
                     budgetAlerts: {
-                        ...state.budgetAlerts,
+                        ...currentAlerts,
                         general: {
-                            ...state.budgetAlerts.general,
+                            ...(currentAlerts.general || {}),
                             currentSpent: totalSpent
                         }
                     }
                 };
             }),
 
-            setBudget: (amount) => set((state) => ({
-                budget: amount,
-                budgetAlerts: {
-                    ...state.budgetAlerts,
-                    general: {
-                        ...state.budgetAlerts.general,
-                        limit: amount
+            setBudget: (amount) => set((state) => {
+                const currentAlerts = state.budgetAlerts || { general: { enabled: true, limit: 5000, thresholds: [50, 75, 90, 100], currentSpent: 0 }, categories: {} };
+                return {
+                    budget: amount,
+                    budgetAlerts: {
+                        ...currentAlerts,
+                        general: {
+                            ...(currentAlerts.general || {}),
+                            limit: amount
+                        }
                     }
-                }
-            })),
+                };
+            }),
 
             categorizeTransaction: (id, category) => set((state) => ({
                 transactions: state.transactions.map(t => t.id === id ? { ...t, category } : t)
@@ -82,19 +110,20 @@ export const useExpensesStore = create(
 
             // Budget Alerts
             updateBudgetAlert: (type, categoryId, settings) => set((state) => {
+                const currentAlerts = state.budgetAlerts || { general: { enabled: true, limit: 5000, thresholds: [50, 75, 90, 100], currentSpent: 0 }, categories: {} };
                 if (type === 'general') {
                     return {
                         budgetAlerts: {
-                            ...state.budgetAlerts,
-                            general: { ...state.budgetAlerts.general, ...settings }
+                            ...currentAlerts,
+                            general: { ...(currentAlerts.general || {}), ...settings }
                         }
                     };
                 } else {
                     return {
                         budgetAlerts: {
-                            ...state.budgetAlerts,
+                            ...currentAlerts,
                             categories: {
-                                ...state.budgetAlerts.categories,
+                                ...(currentAlerts.categories || {}),
                                 [categoryId]: settings
                             }
                         }
@@ -172,6 +201,29 @@ export const useExpensesStore = create(
         {
             name: 'expenses-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            version: 1,
+            migrate: (persistedState, version) => {
+                if (!persistedState) return persistedState;
+                if (version === 0) {
+                    // Transition from version 0 to 1
+                    return {
+                        ...persistedState,
+                        incomeSources: persistedState.incomeSources || [
+                            { id: '1', type: 'salary', amount: persistedState.budget || 5000, note: '' }
+                        ],
+                        budgetAlerts: persistedState.budgetAlerts || {
+                            general: {
+                                enabled: true,
+                                limit: persistedState.budget || 5000,
+                                thresholds: [50, 75, 90, 100],
+                                currentSpent: 0
+                            },
+                            categories: {}
+                        }
+                    };
+                }
+                return persistedState;
+            },
         }
     )
 );

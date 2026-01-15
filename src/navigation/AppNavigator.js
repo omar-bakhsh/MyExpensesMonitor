@@ -13,6 +13,9 @@ import CardCustomizationScreen from '../screens/CardCustomizationScreen';
 import CategoryBudgetScreen from '../screens/CategoryBudgetScreen';
 import MerchantStatsScreen from '../screens/MerchantStatsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import HelpScreen from '../screens/HelpScreen';
+import TermsScreen from '../screens/TermsScreen';
+import IncomeScreen from '../screens/IncomeScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../store';
 
@@ -82,6 +85,18 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="Reports"
                     component={ReportsScreen}
+                />
+                <Stack.Screen
+                    name="Help"
+                    component={HelpScreen}
+                />
+                <Stack.Screen
+                    name="Terms"
+                    component={TermsScreen}
+                />
+                <Stack.Screen
+                    name="Income"
+                    component={IncomeScreen}
                 />
             </Stack.Navigator>
         </NavigationContainer>

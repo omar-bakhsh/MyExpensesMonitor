@@ -8,7 +8,8 @@ import * as Progress from 'react-native-progress';
 
 const GoalsScreen = () => {
     const { t, isRTL } = useTranslation();
-    const { savingsGoals, addGoal, updateGoal, deleteGoal } = useExpensesStore();
+    const { savingsGoals: rawGoals, addGoal, updateGoal, deleteGoal } = useExpensesStore();
+    const savingsGoals = rawGoals || [];
     const [showModal, setShowModal] = useState(false);
     const [editingGoal, setEditingGoal] = useState(null);
 

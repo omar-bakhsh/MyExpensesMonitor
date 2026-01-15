@@ -9,17 +9,24 @@ export default function App() {
     registerForPushNotificationsAsync();
 
     // Listeners
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification Received:', notification);
-    });
+    let subscription;
+    let responseSubscription;
 
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification Response:', response);
-    });
+    if (Notifications.addNotificationReceivedListener) {
+      subscription = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification Received:', notification);
+      });
+    }
+
+    if (Notifications.addNotificationResponseReceivedListener) {
+      responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notification Response:', response);
+      });
+    }
 
     return () => {
-      subscription.remove();
-      responseSubscription.remove();
+      subscription?.remove();
+      responseSubscription?.remove();
     };
   }, []);
 

@@ -9,6 +9,7 @@ const ExpenseChart = ({ transactions }) => {
     const [timeRange, setTimeRange] = useState('7D'); // 7D, 1M, 3M, 6M
 
     const getChartData = () => {
+        const safeTransactions = transactions || [];
         const now = new Date();
         let days = 7;
         let groupBy = 'day';
@@ -40,10 +41,10 @@ const ExpenseChart = ({ transactions }) => {
             });
 
             const dailyTotals = dateRange.map(day => {
-                const dayTransactions = transactions.filter(t =>
-                    t.date.split('T')[0] === day
+                const dayTransactions = safeTransactions.filter(t =>
+                    t.date && t.date.split('T')[0] === day
                 );
-                return dayTransactions.reduce((sum, t) => sum + t.amount, 0);
+                return dayTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
             });
 
             const labels = dateRange.map(day => {
@@ -68,15 +69,17 @@ const ExpenseChart = ({ transactions }) => {
                 const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 months.push(date.toLocaleDateString('en', { month: 'short' }));
 
-                const monthTransactions = transactions.filter(t => {
-                    const txDate = new Date(t.date);
+                const monthTransactions = safeTransactions.filter(t => {
+                    const txDate = t.date ? new Date(t.date) : new Date();
                     return `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}` === monthKey;
                 });
-                monthlyTotals.push(monthTransactions.reduce((sum, t) => sum + t.amount, 0));
+                monthlyTotals.push(monthTransactions.reduce((sum, t) => sum + (t.amount || 0), 0));
             }
 
             return { labels: months, data: monthlyTotals };
         }
+
+        return { labels: [], data: [] };
     };
 
     const { labels, data } = getChartData();

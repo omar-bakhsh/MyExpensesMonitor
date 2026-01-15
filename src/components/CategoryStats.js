@@ -9,9 +9,9 @@ const CategoryStats = ({ transactions }) => {
     const { t } = useTranslation();
 
     // Group transactions by category
-    const categoryTotals = transactions.reduce((acc, tx) => {
+    const categoryTotals = (transactions || []).reduce((acc, tx) => {
         const category = tx.category || 'Uncategorized';
-        acc[category] = (acc[category] || 0) + tx.amount;
+        acc[category] = (acc[category] || 0) + (tx.amount || 0);
         return acc;
     }, {});
 

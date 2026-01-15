@@ -6,10 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
 import { formatCurrency } from '../utils/helpers';
 import { LineChart, BarChart } from 'react-native-chart-kit';
+import { exportToPDF, exportToExcel } from '../services/dataService';
+import { Alert } from 'react-native';
 
 const ReportsScreen = ({ navigation }) => {
     const { t, isRTL } = useTranslation();
-    const { transactions } = useExpensesStore();
+    const rawTransactions = useExpensesStore(state => state.transactions) || [];
+    const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
     const [selectedPeriod, setSelectedPeriod] = useState('year');
     const screenWidth = Dimensions.get('window').width - (SPACING.m * 2);
 
@@ -61,6 +64,24 @@ const ReportsScreen = ({ navigation }) => {
         };
     }, [transactions, monthlyData]);
 
+    const handleExportPDF = async () => {
+        const result = await exportToPDF(transactions, t('annualSummary'), t('sar'), isRTL);
+        if (result.success) {
+            Alert.alert(t('success'), result.message);
+        } else {
+            Alert.alert(t('error'), result.message);
+        }
+    };
+
+    const handleExportExcel = async () => {
+        const result = await exportToExcel(transactions);
+        if (result.success) {
+            Alert.alert(t('success'), result.message);
+        } else {
+            Alert.alert(t('error'), result.message);
+        }
+    };
+
     // Chart configuration
     const chartConfig = {
         backgroundColor: COLORS.surface,
@@ -88,6 +109,14 @@ const ReportsScreen = ({ navigation }) => {
                 <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left', flex: 1 }]}>
                     {t('reports')}
                 </Text>
+                <View style={{ flexDirection: 'row', gap: SPACING.s }}>
+                    <TouchableOpacity onPress={handleExportPDF} style={styles.iconButton}>
+                        <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleExportExcel} style={styles.iconButton}>
+                        <Ionicons name="grid-outline" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -223,6 +252,14 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.bold,
         fontWeight: 'bold',
         color: COLORS.text,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.primary + '10',
+        borderRadius: 20,
     },
     content: {
         padding: SPACING.m,

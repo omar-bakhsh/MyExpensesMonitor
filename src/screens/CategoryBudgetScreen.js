@@ -16,9 +16,10 @@ const CategoryBudgetScreen = ({ navigation }) => {
     // Calculate spending per category
     const categorySpending = React.useMemo(() => {
         const spending = {};
-        transactions.forEach(tx => {
+        const safeTransactions = transactions || [];
+        safeTransactions.forEach(tx => {
             const cat = tx.category || 'Uncategorized';
-            spending[cat] = (spending[cat] || 0) + tx.amount;
+            spending[cat] = (spending[cat] || 0) + (tx.amount || 0);
         });
         return spending;
     }, [transactions]);
@@ -40,7 +41,7 @@ const CategoryBudgetScreen = ({ navigation }) => {
     };
 
     const toggleCategoryAlert = (categoryId, enabled) => {
-        const currentSettings = budgetAlerts.categories[categoryId] || { limit: 1000, thresholds: [50, 75, 90, 100] };
+        const currentSettings = budgetAlerts?.categories?.[categoryId] || { limit: 1000, thresholds: [50, 75, 90, 100] };
         updateBudgetAlert('category', categoryId, { ...currentSettings, enabled });
     };
 
@@ -68,14 +69,14 @@ const CategoryBudgetScreen = ({ navigation }) => {
                                 {t('generalBudget')}
                             </Text>
                             <Text style={[styles.generalLimit, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                {formatCurrency(budgetAlerts.general.limit)}
+                                {formatCurrency(budgetAlerts?.general?.limit || 0)}
                             </Text>
                         </View>
                         <Switch
-                            value={budgetAlerts.general.enabled}
+                            value={budgetAlerts?.general?.enabled || false}
                             onValueChange={(enabled) => updateBudgetAlert('general', null, { enabled })}
                             trackColor={{ false: '#E5E7EB', true: COLORS.primary + '80' }}
-                            thumbColor={budgetAlerts.general.enabled ? COLORS.primary : '#f4f3f4'}
+                            thumbColor={budgetAlerts?.general?.enabled ? COLORS.primary : '#f4f3f4'}
                         />
                     </View>
                 </Card>
@@ -86,7 +87,7 @@ const CategoryBudgetScreen = ({ navigation }) => {
                 </Text>
 
                 {CATEGORIES.map(category => {
-                    const settings = budgetAlerts.categories[category.id] || { enabled: false, limit: 0 };
+                    const settings = budgetAlerts?.categories?.[category.id] || { enabled: false, limit: 0 };
                     const spent = categorySpending[category.id] || 0;
                     const percentage = settings.limit > 0 ? (spent / settings.limit) * 100 : 0;
                     const isEditing = editingCategory === category.id;

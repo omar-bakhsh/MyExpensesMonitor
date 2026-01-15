@@ -5,34 +5,22 @@ import { useExpensesStore, useTranslation } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
 import { formatCurrency } from '../utils/helpers';
+import { calculateMerchantStats } from '../services/transactionService';
 
 const MerchantStatsScreen = ({ navigation }) => {
     const { t, isRTL } = useTranslation();
-    const { transactions } = useExpensesStore();
+    const rawTransactions = useExpensesStore(state => state.transactions) || [];
+    const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
 
-    // Calculate merchant statistics
+    // Calculate merchant statistics using service
     const merchantStats = React.useMemo(() => {
-        const stats = {};
-
-        transactions.forEach(tx => {
-            const merchant = tx.merchant || 'Unknown';
-            if (!stats[merchant]) {
-                stats[merchant] = {
-                    name: merchant,
-                    totalAmount: 0,
-                    count: 0,
-                    lastTransaction: tx.date,
-                    category: tx.category || 'Uncategorized'
-                };
-            }
-            stats[merchant].totalAmount += tx.amount;
-            stats[merchant].count += 1;
-            if (new Date(tx.date) > new Date(stats[merchant].lastTransaction)) {
-                stats[merchant].lastTransaction = tx.date;
-            }
-        });
-
-        return Object.values(stats).sort((a, b) => b.totalAmount - a.totalAmount);
+        const stats = calculateMerchantStats(transactions);
+        // Map service output to component state structure if needed
+        return (stats || []).map(s => ({
+            ...s,
+            totalAmount: s.total || 0,
+            category: transactions.find(t => t.merchant === s.name)?.category || 'Uncategorized'
+        }));
     }, [transactions]);
 
     const totalSpending = merchantStats.reduce((sum, m) => sum + m.totalAmount, 0);
