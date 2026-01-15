@@ -39,17 +39,30 @@ export const filterTransactions = (transactions = [], filters = {}) => {
 
 export const calculateMerchantStats = (transactions = []) => {
     const stats = {};
-    (transactions || []).forEach(tx => {
+    const safeTransactions = transactions || [];
+
+    safeTransactions.forEach(tx => {
+        if (!tx) return;
         const merchant = tx.merchant || 'Unknown';
+        const amount = parseFloat(tx.amount) || 0;
+
         if (!stats[merchant]) {
-            stats[merchant] = { name: merchant, total: 0, count: 0, lastDate: tx.date };
+            stats[merchant] = {
+                name: merchant,
+                total: 0,
+                count: 0,
+                lastDate: tx.date || new Date().toISOString()
+            };
         }
-        stats[merchant].total += tx.amount;
+
+        stats[merchant].total += amount;
         stats[merchant].count += 1;
-        if (new Date(tx.date) > new Date(stats[merchant].lastDate)) {
+
+        if (tx.date && (!stats[merchant].lastDate || new Date(tx.date) > new Date(stats[merchant].lastDate))) {
             stats[merchant].lastDate = tx.date;
         }
     });
+
     return Object.values(stats).sort((a, b) => b.total - a.total);
 };
 

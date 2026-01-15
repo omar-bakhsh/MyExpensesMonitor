@@ -186,7 +186,13 @@ export const useExpensesStore = create(
 
             resetData: () => set({
                 transactions: [],
+                uncategorized: [],
                 budget: 5000,
+                incomeSources: [
+                    { id: '1', type: 'salary', amount: 5000, note: '' }
+                ],
+                banks: [],
+                cards: [],
                 budgetAlerts: {
                     general: {
                         enabled: true,
@@ -195,7 +201,8 @@ export const useExpensesStore = create(
                         currentSpent: 0
                     },
                     categories: {}
-                }
+                },
+                savingsGoals: []
             }),
         }),
         {

@@ -31,32 +31,32 @@ export const requestSMSPermission = async () => {
 
 // Common keywords for transaction messages
 const TRANSACTION_KEYWORDS = [
-    'purchase', 'spent', 'debit', 'withdraw', 'transfer', 'paid',
-    'شراء', 'دفع', 'سحب', 'تحويل', 'صرف', 'مشتريات'
+    'purchase', 'spent', 'debit', 'withdraw', 'transfer', 'paid', 'pos', 'atm',
+    'شراء', 'دفع', 'سحب', 'تحويل', 'صرف', 'مشتريات', 'نقاط بيع', 'مدى'
 ];
 
 // Bank Sender IDs (add more as needed)
 const BANK_SENDERS = [
     'AlRajhiBank', 'SNB', 'NCB', 'RiyadBank', 'SABB', 'ANB',
     'Alinma', 'AlJazira', 'AlBilad', 'SAIB', 'BSF', 'GIB',
-    'stcpay', 'Urpay', 'Loop', 'Tweeq'
+    'stcpay', 'Urpay', 'Loop', 'Tweeq', 'MobilyPay', 'Tiqmo'
 ];
 
 // Parse transaction from SMS text
 export const parseTransactionFromSMS = (smsText, sender) => {
     // Basic amount regex - looks for currency + amount or amount + currency
-    // Supports: SAR 10.50, SR 100, 50.00 SAR, ر.س 500
-    const amountRegex = /(?:SAR|SR|RAS|SAU|ر\.س|ريال)\s*(\d+(?:,\d+)*(?:\.\d{2})?)|\s*(\d+(?:,\d+)*(?:\.\d{2})?)\s*(?:SAR|SR|RAS|SAU|ر\.س|ريال)/i;
+    // Supports: SAR 10.50, SR 100, 50.00 SAR, ر.س 500, ريال 50
+    const amountRegex = /(?:SAR|SR|RAS|SAU|ر\.س|ريال)\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)|\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)\s*(?:SAR|SR|RAS|SAU|ر\.س|ريال)/i;
 
-    // Merchant regex - attempts to find "at [Merchant]" or "from [Merchant]"
-    const merchantRegex = /(?:at|@|to|from|لدى|من)\s+([A-Za-z0-9\s\-_&]+?)(?:\s+on|\s+dated|\s+time|\s+date|\.|$)/i;
+    // Merchant regex - attempts to find "at [Merchant]" or "from [Merchant]" or "لدى [المتجر]"
+    // Improved to handle common bank message boundaries
+    const merchantRegex = /(?:at|@|to|from|لدى|من|في)\s+([A-Za-z0-9\s\-_&أ-ي]+?)(?:\s+on|\s+dated|\s+time|\s+date|\.|\s+using|$)/i;
 
     // Attempt extract amount
     const amountMatch = smsText.match(amountRegex);
     let amount = null;
 
     if (amountMatch) {
-        // amountMatch[1] or amountMatch[2] will contain the number
         const amountStr = amountMatch[1] || amountMatch[2];
         if (amountStr) {
             amount = parseFloat(amountStr.replace(/,/g, ''));
@@ -64,53 +64,49 @@ export const parseTransactionFromSMS = (smsText, sender) => {
     }
 
     // Extract Card Last 4 digits
-    // Supports formats like: ...1234, *1234, card ending 1234, بطاقة تنتهي بـ 1234
-    const cardRegex = /(?:\.|\*|ending in|ending|بطاقة|تنتهي بـ)\s*(\d{4})/i;
+    const cardRegex = /(?:\.|\*|ending in|ending|بطاقة|تنتهي بـ|بطاقة رقم)\s*(\d{4})/i;
     const cardMatch = smsText.match(cardRegex);
     let cardLast4 = null;
     if (cardMatch) {
         cardLast4 = cardMatch[1];
     }
 
-    // If no amount found, it's probably not a transaction we care about
     if (!amount) return null;
 
     // Attempt extract merchant
     let merchant = 'Unknown';
     if (sender && !sender.match(/^\d+$/)) {
-        // Use sender name as fallback/prefix if it looks like a bank name
         merchant = sender;
     }
 
     const merchantMatch = smsText.match(merchantRegex);
     if (merchantMatch) {
-        // Clean up merchant name
         merchant = merchantMatch[1].trim();
 
-        // Remove common trailing words if accidentally captured
-        const stopWords = ['on', 'completed', 'successfully', 'using', 'card', 'ending', 'dev'];
+        // Remove common trailing noise
+        const stopWords = ['on', 'completed', 'successfully', 'using', 'card', 'ending', 'at', 'with'];
         stopWords.forEach(word => {
-            if (merchant.toLowerCase().endsWith(` ${word}`)) {
-                merchant = merchant.substring(0, merchant.length - word.length - 1);
-            }
+            const pattern = new RegExp(`\\s+${word}$`, 'i');
+            merchant = merchant.replace(pattern, '');
         });
     }
 
-    // Determine category based on merchant name keywords (simple heuristic)
+    // Determine category based on merchant name keywords
     let category = 'Uncategorized';
     const lowerMerchant = merchant.toLowerCase();
 
-    if (lowerMerchant.includes('uber') || lowerMerchant.includes('careem') || lowerMerchant.includes('gas') || lowerMerchant.includes('station')) category = 'transport';
-    else if (lowerMerchant.includes('market') || lowerMerchant.includes('grocery') || lowerMerchant.includes('food') || lowerMerchant.includes('panda') || lowerMerchant.includes('othaim')) category = 'groceries';
-    else if (lowerMerchant.includes('restaurant') || lowerMerchant.includes('cafe') || lowerMerchant.includes('coffee') || lowerMerchant.includes('burger') || lowerMerchant.includes('pizza')) category = 'dining';
-    else if (lowerMerchant.includes('stc') || lowerMerchant.includes('mobily') || lowerMerchant.includes('zain') || lowerMerchant.includes('net')) category = 'utilities';
-    else if (lowerMerchant.includes('hospital') || lowerMerchant.includes('pharmacy') || lowerMerchant.includes('dr') || lowerMerchant.includes('clinic')) category = 'health';
-    else if (lowerMerchant.includes('pay') || lowerMerchant.includes('transfer')) category = 'transfer';
+    if (lowerMerchant.match(/uber|careem|gas|station|محطة|بنزين|taxi/)) category = 'transport';
+    else if (lowerMerchant.match(/market|grocery|food|panda|othaim|بندة|عثيم|تموينات/)) category = 'groceries';
+    else if (lowerMerchant.match(/restaurant|cafe|coffee|burger|pizza|مطعم|مقهى|قهوة/)) category = 'dining';
+    else if (lowerMerchant.match(/stc|mobily|zain|net|fatura|electricity|كهرباء|فاتورة/)) category = 'utilities';
+    else if (lowerMerchant.match(/hospital|pharmacy|dr|clinic|مستشفى|صيدلية|طبيب/)) category = 'health';
+    else if (lowerMerchant.match(/pay|transfer|tahweel|تحويل/)) category = 'transfer';
+    else if (lowerMerchant.match(/mall|shop|store|amazon|noon|clothing|ملابس|سوق/)) category = 'shopping';
 
     return {
         amount,
         merchant: merchant.trim(),
-        date: new Date().toISOString(), // We'll overwrite this with actual SMS date
+        date: new Date().toISOString(),
         category,
         cardLast4,
         bankName: sender,

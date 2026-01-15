@@ -227,6 +227,8 @@ export const TRANSLATIONS = {
         walletsAndBanks: 'المحافظ والبنوك',
         cardSpending: 'مصروفات البطاقات',
         edit: 'تعديل',
+    },
+    en: {
         // General
         appName: 'MyExpensesMonitor',
         welcome: 'Welcome back,',
