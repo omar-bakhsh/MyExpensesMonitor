@@ -72,7 +72,9 @@ const HelpScreen = ({ navigation }) => {
 
                 {/* Info Section */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>{t('developedBy')} Omar Bakhsh</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://github.com/omar-bakhsh')}>
+                        <Text style={styles.footerText}>{t('developedBy')} Omar Bakhsh</Text>
+                    </TouchableOpacity>
                     <Text style={styles.companyText}>@ Kayan Platform</Text>
                     <Text style={styles.versionText}>{t('version')} {version}</Text>
                 </View>
