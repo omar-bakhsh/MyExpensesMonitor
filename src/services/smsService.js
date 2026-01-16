@@ -31,8 +31,8 @@ export const requestSMSPermission = async () => {
 
 // Common keywords for transaction messages
 const TRANSACTION_KEYWORDS = [
-    'purchase', 'spent', 'debit', 'withdraw', 'transfer', 'paid', 'pos', 'atm',
-    'شراء', 'دفع', 'سحب', 'تحويل', 'صرف', 'مشتريات', 'نقاط بيع', 'مدى'
+    'purchase', 'spent', 'debit', 'withdraw', 'transfer', 'paid', 'pos', 'atm', 'online', 'declined',
+    'شراء', 'دفع', 'سحب', 'تحويل', 'صرف', 'مشتريات', 'نقاط بيع', 'مدى', 'عملية', 'مخصوم'
 ];
 
 // Bank Sender IDs (add more as needed)
@@ -46,11 +46,11 @@ const BANK_SENDERS = [
 export const parseTransactionFromSMS = (smsText, sender) => {
     // Basic amount regex - looks for currency + amount or amount + currency
     // Supports: SAR 10.50, SR 100, 50.00 SAR, ر.س 500, ريال 50
-    const amountRegex = /(?:SAR|SR|RAS|SAU|ر\.س|ريال)\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)|\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)\s*(?:SAR|SR|RAS|SAU|ر\.س|ريال)/i;
+    const amountRegex = /(?:SAR|SR|RAS|SAU|ر\.س|ريال|د\.إ|دينار|درهم)\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)|\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)\s*(?:SAR|SR|RAS|SAU|ر\.س|ريال|د\.إ|دينار|درهم)/i;
 
     // Merchant regex - attempts to find "at [Merchant]" or "from [Merchant]" or "لدى [المتجر]"
-    // Improved to handle common bank message boundaries
-    const merchantRegex = /(?:at|@|to|from|لدى|من|في)\s+([A-Za-z0-9\s\-_&أ-ي]+?)(?:\s+on|\s+dated|\s+time|\s+date|\.|\s+using|$)/i;
+    // Improved to handle common bank message boundaries and Arabic merchants
+    const merchantRegex = /(?:at|@|to|from|لدى|من|في|شراء من)\s+([A-Za-z0-9\s\-_&أ-ي]+?)(?:\s+on|\s+dated|\s+time|\s+date|\s+using|بـ|في|$|\.)/i;
 
     // Attempt extract amount
     const amountMatch = smsText.match(amountRegex);
@@ -94,14 +94,27 @@ export const parseTransactionFromSMS = (smsText, sender) => {
     // Determine category based on merchant name keywords
     let category = 'Uncategorized';
     const lowerMerchant = merchant.toLowerCase();
+    const smsLower = smsText.toLowerCase();
 
-    if (lowerMerchant.match(/uber|careem|gas|station|محطة|بنزين|taxi/)) category = 'transport';
-    else if (lowerMerchant.match(/market|grocery|food|panda|othaim|بندة|عثيم|تموينات/)) category = 'groceries';
-    else if (lowerMerchant.match(/restaurant|cafe|coffee|burger|pizza|مطعم|مقهى|قهوة/)) category = 'dining';
-    else if (lowerMerchant.match(/stc|mobily|zain|net|fatura|electricity|كهرباء|فاتورة/)) category = 'utilities';
-    else if (lowerMerchant.match(/hospital|pharmacy|dr|clinic|مستشفى|صيدلية|طبيب/)) category = 'health';
-    else if (lowerMerchant.match(/pay|transfer|tahweel|تحويل/)) category = 'transfer';
-    else if (lowerMerchant.match(/mall|shop|store|amazon|noon|clothing|ملابس|سوق/)) category = 'shopping';
+    // Mapping patterns to categories
+    const categoryPatterns = {
+        transport: /uber|careem|gas|station|محطة|بنزين|taxi|qrreem|kayan|bolt|jeeny|freenow/,
+        groceries: /market|grocery|food|panda|othaim|بندة|عثيم|تموينات|lulu|carrefour|danube|tamaz|farm|supermarket|مزرعة|سوبر ماركت|دانوب|لولو|كارفور/,
+        dining: /restaurant|cafe|coffee|burger|pizza|مطعم|مقهى|قهوة|starbucks|dunkin|barn|kudu|hardees|maestro|albaik|بيك|كودو|ستار بكس|هرفي|برجر|بيتزا/,
+        utilities: /stc|mobily|zain|net|fatura|electricity|كهرباء|فاتورة|enaya|water|tamara|tabby|مياه|اتصالات|تمارا|تابي/,
+        health: /hospital|pharmacy|dr|clinic|مستشفى|صيدلية|طبيب|nahdi|daawa|نهدي|دواء|مجمع طبي/,
+        transfer: /pay|transfer|tahweel|تحويل|fawri|stcpay|urpay|enjaz|إنجاز|فوري/,
+        shopping: /mall|shop|store|amazon|noon|clothing|ملابس|سوق|jarir|eXtra|ikea|centerpoint|h&m|zara|namshi|نمشي|أمازون|نون|جرير|اكسترا|إيكيا/,
+        entertainment: /netflix|osn|shahid|cinema|movies|games|playstation|xbox|ترفيه|سينما|شاهد|نتفليكس/,
+        travel: /fly|air|hotel|booking|saudia|flynas|سياحة|فندق|طيران|سفر/
+    };
+
+    for (const [cat, pattern] of Object.entries(categoryPatterns)) {
+        if (lowerMerchant.match(pattern) || (cat === 'utilities' && smsLower.match(pattern))) {
+            category = cat;
+            break;
+        }
+    }
 
     return {
         amount,
@@ -119,7 +132,7 @@ const fetchSMS = (filter = {}) => {
         SmsAndroid.list(
             JSON.stringify({
                 box: 'inbox',
-                maxCount: 100, // Limit to last 100 messages for performance
+                maxCount: 500, // Increased limit to find older bank messages
                 ...filter,
             }),
             (fail) => {
@@ -156,8 +169,8 @@ export const scanSMSForTransactions = async (userBanks = []) => {
         return [];
     }
 
-    // Build list of valid sender IDs from user's selected banks + default hardcoded list as fallback
-    let validSenders = [...BANK_SENDERS];
+    // Build list of valid sender IDs ONLY from user's selected banks
+    let validSenders = [];
 
     // If user has defined banks, add their SMS Sender IDs to the whitelist
     if (userBanks && userBanks.length > 0) {
@@ -166,8 +179,14 @@ export const scanSMSForTransactions = async (userBanks = []) => {
                 validSenders.push(...bank.smsSenderIds);
             }
         });
-        // Remove duplicates
-        validSenders = [...new Set(validSenders)];
+        // Remove duplicates and normalize to lowercase
+        validSenders = [...new Set(validSenders.map(s => s.toLowerCase()))];
+    }
+
+    // If no banks are selected, don't scan anything to protect privacy
+    if (validSenders.length === 0) {
+        console.log('No banks selected for SMS scanning.');
+        return [];
     }
 
     try {
@@ -189,13 +208,17 @@ export const scanSMSForTransactions = async (userBanks = []) => {
                 const body = msg.body;
                 const address = msg.address || ''; // Sender can be null sometimes
 
-                // 1. Is it from a known bank sender?
-                const isBankSender = validSenders.some(sender => address.toLowerCase().includes(sender.toLowerCase()));
+                // 1. Is it from a known bank sender? (Strict check)
+                const isBankSender = validSenders.some(senderId => 
+                    address.toLowerCase().includes(senderId) || 
+                    senderId.includes(address.toLowerCase())
+                );
 
                 // 2. Does it have transaction keywords?
                 const hasKeywords = TRANSACTION_KEYWORDS.some(kw => body.toLowerCase().includes(kw));
 
-                if (isBankSender || hasKeywords) {
+                // Process ONLY if it is a verified bank sender AND has transaction text
+                if (isBankSender && hasKeywords) {
                     const parsed = parseTransactionFromSMS(body, address);
 
                     if (parsed && parsed.amount) {

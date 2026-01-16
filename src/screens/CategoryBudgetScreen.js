@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert, StatusBar } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { useExpensesStore, useTranslation } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
@@ -47,25 +47,24 @@ const CategoryBudgetScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* Header with Back Button */}
-            <View style={styles.header}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left', flex: 1 }]}>
-                    {t('categoryBudgets')}
-                </Text>
+                <Text style={styles.title}>{t('categoryBudgets')}</Text>
+                <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* General Budget Alert */}
-                <Card style={styles.generalCard}>
+                <Card style={styles.generalCard} variant="elevated">
                     <View style={[styles.generalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View style={styles.generalIcon}>
-                            <Ionicons name="wallet" size={24} color={COLORS.primary} />
+                            <Ionicons name="sparkles" size={24} color={COLORS.white} />
                         </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.generalTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+                        <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                            <Text style={[styles.generalLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
                                 {t('generalBudget')}
                             </Text>
                             <Text style={[styles.generalLimit, { textAlign: isRTL ? 'right' : 'left' }]}>
@@ -75,17 +74,18 @@ const CategoryBudgetScreen = ({ navigation }) => {
                         <Switch
                             value={budgetAlerts?.general?.enabled || false}
                             onValueChange={(enabled) => updateBudgetAlert('general', null, { enabled })}
-                            trackColor={{ false: '#E5E7EB', true: COLORS.primary + '80' }}
-                            thumbColor={budgetAlerts?.general?.enabled ? COLORS.primary : '#f4f3f4'}
+                            trackColor={{ false: COLORS.surfaceVariant, true: COLORS.white + '40' }}
+                            thumbColor={COLORS.white}
                         />
                     </View>
                 </Card>
 
-                {/* Category Budgets */}
+                {/* Section Title */}
                 <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
                     {t('categoryBudgets')}
                 </Text>
 
+                {/* Category Budgets */}
                 {CATEGORIES.map(category => {
                     const settings = budgetAlerts?.categories?.[category.id] || { enabled: false, limit: 0 };
                     const spent = categorySpending[category.id] || 0;
@@ -93,24 +93,24 @@ const CategoryBudgetScreen = ({ navigation }) => {
                     const isEditing = editingCategory === category.id;
 
                     return (
-                        <Card key={category.id} style={styles.categoryCard}>
+                        <Card key={category.id} style={styles.categoryCard} variant="outlined">
                             <View style={[styles.categoryHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
+                                <View style={[styles.categoryIconWrapper, { backgroundColor: category.color + '15' }]}>
                                     <Ionicons name={category.icon} size={20} color={category.color} />
                                 </View>
-                                <View style={{ flex: 1 }}>
+                                <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
                                     <Text style={[styles.categoryName, { textAlign: isRTL ? 'right' : 'left' }]}>
                                         {t(category.id)}
                                     </Text>
                                     <Text style={[styles.categorySpent, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                        {t('spent')}: {formatCurrency(spent)}
+                                        {formatCurrency(spent)} {t('spent')}
                                     </Text>
                                 </View>
                                 <Switch
                                     value={settings.enabled}
                                     onValueChange={(enabled) => toggleCategoryAlert(category.id, enabled)}
-                                    trackColor={{ false: '#E5E7EB', true: category.color + '80' }}
-                                    thumbColor={settings.enabled ? category.color : '#f4f3f4'}
+                                    trackColor={{ false: COLORS.surfaceVariant, true: category.color + '40' }}
+                                    thumbColor={settings.enabled ? category.color : COLORS.white}
                                 />
                             </View>
 
@@ -124,37 +124,42 @@ const CategoryBudgetScreen = ({ navigation }) => {
                                                 onChangeText={setTempLimit}
                                                 keyboardType="numeric"
                                                 placeholder={t('enterLimit')}
+                                                placeholderTextColor={COLORS.textMuted}
                                                 autoFocus
                                             />
                                             <TouchableOpacity
-                                                style={[styles.saveBtn, { backgroundColor: category.color }]}
+                                                style={[styles.saveIconBtn, { backgroundColor: category.color }]}
                                                 onPress={() => handleSaveLimit(category.id)}
                                             >
-                                                <Ionicons name="checkmark" size={20} color={COLORS.surface} />
+                                                <Ionicons name="checkmark" size={20} color={COLORS.white} />
                                             </TouchableOpacity>
                                             <TouchableOpacity
-                                                style={styles.cancelBtn}
+                                                style={styles.cancelIconBtn}
                                                 onPress={() => { setEditingCategory(null); setTempLimit(''); }}
                                             >
                                                 <Ionicons name="close" size={20} color={COLORS.error} />
                                             </TouchableOpacity>
                                         </View>
                                     ) : (
-                                        <>
+                                        <View style={styles.budgetDisplay}>
                                             <View style={[styles.limitRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                                <Text style={styles.limitLabel}>{t('budgetLimit')}:</Text>
-                                                <Text style={styles.limitValue}>
-                                                    {settings.limit > 0 ? formatCurrency(settings.limit) : t('notSet')}
-                                                </Text>
+                                                <View style={{ flex: 1, flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 4 }}>
+                                                    <Text style={styles.limitLabel}>{t('budgetLimit')}:</Text>
+                                                    <Text style={styles.limitValue}>
+                                                        {settings.limit > 0 ? formatCurrency(settings.limit) : t('notSet')}
+                                                    </Text>
+                                                </View>
                                                 <TouchableOpacity
+                                                    style={styles.editBtn}
                                                     onPress={() => { setEditingCategory(category.id); setTempLimit(settings.limit?.toString() || ''); }}
                                                 >
-                                                    <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+                                                    <Ionicons name="pencil" size={14} color={COLORS.primary} />
+                                                    <Text style={styles.editBtnText}>{t('edit')}</Text>
                                                 </TouchableOpacity>
                                             </View>
 
                                             {settings.limit > 0 && (
-                                                <>
+                                                <View style={styles.progressSection}>
                                                     <View style={styles.progressContainer}>
                                                         <View
                                                             style={[
@@ -162,21 +167,25 @@ const CategoryBudgetScreen = ({ navigation }) => {
                                                                 {
                                                                     width: `${Math.min(percentage, 100)}%`,
                                                                     backgroundColor: percentage >= 90 ? COLORS.error :
-                                                                        percentage >= 75 ? '#F59E0B' : category.color
+                                                                        percentage >= 75 ? COLORS.warning : category.color
                                                                 }
                                                             ]}
                                                         />
                                                     </View>
-                                                    <Text style={[styles.percentageText, {
-                                                        color: percentage >= 90 ? COLORS.error :
-                                                            percentage >= 75 ? '#F59E0B' : COLORS.textSecondary,
-                                                        textAlign: isRTL ? 'right' : 'left'
-                                                    }]}>
-                                                        {percentage.toFixed(0)}% {t('used')}
-                                                    </Text>
-                                                </>
+                                                    <View style={[styles.progressLabels, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                                        <Text style={[styles.percentageText, {
+                                                            color: percentage >= 90 ? COLORS.error :
+                                                                percentage >= 75 ? COLORS.warning : COLORS.primary,
+                                                        }]}>
+                                                            {percentage.toFixed(0)}% {t('used')}
+                                                        </Text>
+                                                        <Text style={styles.remainingText}>
+                                                            {formatCurrency(Math.max(0, settings.limit - spent))} {isRTL ? 'متبقي' : 'left'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
                                             )}
-                                        </>
+                                        </View>
                                     )}
                                 </View>
                             )}
@@ -194,91 +203,86 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 50,
         paddingHorizontal: SPACING.m,
         paddingBottom: SPACING.m,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        backgroundColor: COLORS.white,
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: SPACING.s,
     },
     title: {
-        fontSize: 20,
-        fontFamily: FONTS.bold,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
     content: {
         padding: SPACING.m,
-        paddingBottom: SPACING.xl,
     },
     generalCard: {
-        marginBottom: SPACING.l,
-        backgroundColor: COLORS.primary + '10',
-        borderWidth: 1,
-        borderColor: COLORS.primary + '30',
+        backgroundColor: COLORS.primary,
+        padding: SPACING.l,
+        marginBottom: SPACING.xl,
     },
     generalHeader: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: SPACING.m,
     },
     generalIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: COLORS.primary + '20',
+        width: 54,
+        height: 54,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.2)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    generalTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.text,
+    generalLabel: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.7)',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     generalLimit: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
-        color: COLORS.primary,
+        color: COLORS.white,
         marginTop: 4,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: SPACING.m,
     },
     categoryCard: {
+        padding: SPACING.m,
         marginBottom: SPACING.s,
     },
     categoryHeader: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: SPACING.m,
     },
-    categoryIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+    categoryIconWrapper: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     categoryName: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
     },
     categorySpent: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS.textMuted,
         marginTop: 2,
     },
     budgetSection: {
@@ -287,62 +291,86 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
     },
+    budgetDisplay: {
+        gap: SPACING.m,
+    },
     limitRow: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: SPACING.s,
+        justifyContent: 'space-between',
     },
     limitLabel: {
-        fontSize: 14,
+        fontSize: 13,
         color: COLORS.textSecondary,
     },
     limitValue: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
-        flex: 1,
+    },
+    editBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: COLORS.primary + '10',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    editBtnText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: COLORS.primary,
     },
     editRow: {
-        flexDirection: 'row',
         alignItems: 'center',
         gap: SPACING.s,
     },
     input: {
         flex: 1,
-        backgroundColor: '#F3F4F6',
-        padding: SPACING.s,
-        borderRadius: 8,
         fontSize: 16,
+        color: COLORS.text,
+        paddingVertical: 4,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.primary,
     },
-    saveBtn: {
+    saveIconBtn: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    cancelBtn: {
+    cancelIconBtn: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        backgroundColor: '#FEE2E2',
+        borderRadius: 10,
+        backgroundColor: COLORS.error + '10',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    progressSection: {
+        gap: 8,
     },
     progressContainer: {
-        height: 6,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 3,
-        marginTop: SPACING.s,
+        height: 8,
+        backgroundColor: COLORS.surfaceVariant,
+        borderRadius: 4,
         overflow: 'hidden',
     },
     progressBar: {
         height: '100%',
-        borderRadius: 3,
+        borderRadius: 4,
+    },
+    progressLabels: {
+        justifyContent: 'space-between',
     },
     percentageText: {
         fontSize: 12,
-        marginTop: 4,
+        fontWeight: 'bold',
+    },
+    remainingText: {
+        fontSize: 12,
+        color: COLORS.textMuted,
     },
 });
 

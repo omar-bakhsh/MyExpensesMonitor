@@ -5,7 +5,7 @@ import { COLORS, SPACING } from '../utils/theme';
 import { useTranslation } from '../store';
 
 const ExpenseChart = ({ transactions }) => {
-    const { t } = useTranslation();
+    const { t, isRTL, language } = useTranslation();
     const [timeRange, setTimeRange] = useState('7D'); // 7D, 1M, 3M, 6M
 
     const getChartData = () => {
@@ -50,7 +50,8 @@ const ExpenseChart = ({ transactions }) => {
             const labels = dateRange.map(day => {
                 const date = new Date(day);
                 if (timeRange === '7D') {
-                    return date.toLocaleDateString('en', { weekday: 'short' }).slice(0, 3);
+                    const weekday = date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short' });
+                    return weekday;
                 }
                 return `${date.getDate()}/${date.getMonth() + 1}`;
             });
@@ -67,7 +68,9 @@ const ExpenseChart = ({ transactions }) => {
                 const date = new Date();
                 date.setMonth(date.getMonth() - i);
                 const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                months.push(date.toLocaleDateString('en', { month: 'short' }));
+                
+                const monthName = date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { month: 'short' });
+                months.push(monthName);
 
                 const monthTransactions = safeTransactions.filter(t => {
                     const txDate = t.date ? new Date(t.date) : new Date();
@@ -94,9 +97,9 @@ const ExpenseChart = ({ transactions }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>{t('spendingTrend')}</Text>
-                <View style={styles.rangeSelector}>
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t('spendingTrend')}</Text>
+                <View style={[styles.rangeSelector, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     {['7D', '1M', '3M', '6M'].map((range) => (
                         <TouchableOpacity
                             key={range}

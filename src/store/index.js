@@ -27,7 +27,7 @@ export const useExpensesStore = create(
             savingsGoals: [],
 
             setIncomeSources: (sources) => set((state) => {
-                const totalIncome = sources.reduce((acc, s) => acc + parseFloat(s.amount || 0), 0);
+                const totalIncome = (sources || []).reduce((acc, s) => acc + parseFloat(s.amount || 0), 0);
                 const currentAlerts = state.budgetAlerts || { general: { enabled: true, limit: 5000, thresholds: [50, 75, 90, 100], currentSpent: 0 }, categories: {} };
                 return {
                     incomeSources: sources,
@@ -36,7 +36,8 @@ export const useExpensesStore = create(
                         ...currentAlerts,
                         general: {
                             ...(currentAlerts.general || {}),
-                            limit: totalIncome
+                            limit: totalIncome,
+                            currentSpent: state.transactions.reduce((acc, t) => acc + (t.amount || 0), 0)
                         }
                     }
                 };
@@ -83,9 +84,19 @@ export const useExpensesStore = create(
             })),
 
             // Bank Management
-            addBank: (bank) => set((state) => ({
-                banks: [...state.banks, { ...bank, id: Date.now().toString(), smsSenderIds: bank.smsSenderIds || [] }]
-            })),
+            addBank: (bank) => set((state) => {
+                // Check if bank already exists (by original ID or name)
+                const exists = state.banks.some(b => b.id === bank.id || b.name === bank.name);
+                if (exists) return state;
+                
+                return {
+                    banks: [...state.banks, { 
+                        ...bank, 
+                        id: bank.id || Date.now().toString(), 
+                        smsSenderIds: bank.smsSenderIds || [] 
+                    }]
+                };
+            }),
 
             updateBank: (id, updates) => set((state) => ({
                 banks: state.banks.map(b => b.id === id ? { ...b, ...updates } : b)
@@ -96,9 +107,13 @@ export const useExpensesStore = create(
             })),
 
             // Card Management
-            addCard: (card) => set((state) => ({
-                cards: [...state.cards, { ...card, id: Date.now().toString() }]
-            })),
+            addCard: (card) => set((state) => {
+                const exists = state.cards.some(c => c.id === card.id || (c.number && c.number === card.number));
+                if (exists) return state;
+                return {
+                    cards: [...state.cards, { ...card, id: card.id || Date.now().toString() }]
+                };
+            }),
 
             updateCard: (id, updates) => set((state) => ({
                 cards: state.cards.map(c => c.id === id ? { ...c, ...updates } : c)
@@ -238,7 +253,11 @@ export const useExpensesStore = create(
 export const useUserStore = create(
     persist(
         (set, get) => ({
-            user: { name: 'User' },
+            user: { 
+                name: 'المستخدم', 
+                position: 'موظف', 
+                company: 'الشركة' 
+            },
             settings: {
                 currency: 'SAR',
                 language: 'ar', // Default Arabic
@@ -251,6 +270,10 @@ export const useUserStore = create(
                     showAlerts: true,
                     transactionLimit: 50
                 },
+                biometricsEnabled: false,
+                pinEnabled: false,
+                pinCode: '',
+                hideBalance: false,
                 filterPresets: [] // Saved filter configurations
             },
             setUser: (user) => set({ user }),

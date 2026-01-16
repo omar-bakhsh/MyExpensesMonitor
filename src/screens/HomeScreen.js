@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { useExpensesStore, useTranslation, useUserStore } from '../store';
-import { COLORS, FONTS, SPACING } from '../utils/theme';
+import { COLORS, FONTS, SPACING, SHADOWS } from '../utils/theme';
 import Card from '../components/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCurrency } from '../utils/helpers';
@@ -14,18 +14,25 @@ import FilterModal from '../components/FilterModal';
 
 const HomeScreen = ({ navigation }) => {
     const { budget, transactions: rawTransactions, addTransaction, budgetAlerts, searchTransactions, filterTransactions } = useExpensesStore();
-    const { settings, updateSettings } = useUserStore();
-    const { t, isRTL } = useTranslation();
+    const { settings, updateSettings, user } = useUserStore();
+    const { t, isRTL, language } = useTranslation();
     const [isScanning, setIsScanning] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const transactions = rawTransactions || [];
     const [filteredTransactions, setFilteredTransactions] = useState(transactions);
-    const [showFilterModal, setShowFilterModal] = useState(false);
     const [activeFilters, setActiveFilters] = useState({});
     const [selectedAccountFilter, setSelectedAccountFilter] = useState(null);
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const [selectedTxToCategorize, setSelectedTxToCategorize] = useState(null);
+    const [showFilterModal, setShowFilterModal] = useState(false);
 
     const totalSpent = transactions.reduce((acc, t) => acc + (t.amount || 0), 0);
     const remaining = budget - totalSpent;
+
+    const maskAmount = (amount) => {
+        if (settings?.hideBalance) return isRTL ? '**** ر.س' : 'SAR ****';
+        return formatCurrency(amount);
+    };
 
     // Check budget alert
     const budgetPercentage = budget > 0 ? (totalSpent / budget) * 100 : 0;
@@ -136,6 +143,14 @@ const HomeScreen = ({ navigation }) => {
         }
     };
 
+    const handleCategorize = (tx, categoryId) => {
+        useExpensesStore.getState().categorizeTransaction(tx.id, categoryId);
+        setShowCategoryPicker(false);
+        setSelectedTxToCategorize(null);
+    };
+
+    const uncategorizedTransactions = transactions.filter(t => t.category === 'Uncategorized');
+
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.content}>
@@ -143,25 +158,66 @@ const HomeScreen = ({ navigation }) => {
                 <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View>
                         <Text style={[styles.greeting, { textAlign: isRTL ? 'right' : 'left' }]}>{t('welcome')}</Text>
-                        <Text style={[styles.username, { textAlign: isRTL ? 'right' : 'left' }]}>User</Text>
+                        <Text style={[styles.username, { textAlign: isRTL ? 'right' : 'left' }]}>{user?.name} - {user?.position}</Text>
                     </View>
-                    <TouchableOpacity style={styles.profileBtn}>
-                        <Ionicons name="person" size={20} color={COLORS.primary} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: SPACING.s }}>
+                        <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('Reports')}>
+                            <Ionicons name="stats-chart-outline" size={22} color={COLORS.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('Account')}>
+                            <Ionicons name="person-outline" size={22} color={COLORS.text} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
+                {/* Uncategorized Alerts */}
+                {uncategorizedTransactions.length > 0 && (
+                    <Card style={styles.uncategorizedCard}>
+                        <View style={[styles.row, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }]}>
+                            <Ionicons name="alert-circle" size={24} color={COLORS.warning} />
+                            <Text style={[styles.uncategorizedTitle, { flex: 1, marginHorizontal: 10, textAlign: isRTL ? 'right' : 'left' }]}>
+                                {uncategorizedTransactions.length} {isRTL ? 'عمليات تحتاج لتصنيف' : 'transactions need categorization'}
+                            </Text>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                            {uncategorizedTransactions.map(tx => (
+                                <TouchableOpacity
+                                    key={tx.id}
+                                    style={styles.uncategorizedBadge}
+                                    onPress={() => {
+                                        setSelectedTxToCategorize(tx);
+                                        setShowCategoryPicker(true);
+                                    }}
+                                >
+                                    <Text style={styles.uncategorizedBadgeText}>{tx.merchant}</Text>
+                                    <Text style={styles.uncategorizedBadgeAmount}>{formatCurrency(tx.amount)}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </Card>
+                )}
+
                 {/* Budget Summary Card */}
-                <Card style={styles.budgetCard}>
+                <Card style={styles.budgetCard} variant="elevated">
                     <View style={[styles.summaryHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View>
+                        <View style={{ flex: 1 }}>
                             <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalBalance')}</Text>
-                            <Text style={[styles.balance, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(remaining)}</Text>
+                            <View style={[styles.balanceRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                <Text style={[styles.balance, { textAlign: isRTL ? 'right' : 'left' }]}>{maskAmount(remaining)}</Text>
+                                <TouchableOpacity 
+                                    style={styles.eyeBtn} 
+                                    onPress={() => updateSettings({ hideBalance: !settings.hideBalance })}
+                                >
+                                    <Ionicons name={settings.hideBalance ? "eye-off-outline" : "eye-outline"} size={20} color="rgba(255,255,255,0.7)" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                         <TouchableOpacity
                             style={styles.editIncomeBtn}
                             onPress={() => navigation.navigate('Income')}
                         >
-                            <Ionicons name="pencil-outline" size={18} color="#FFF" />
+                            <Ionicons name="add-circle-outline" size={24} color="#FFF" />
+                            <Text style={styles.editIncomeText}>{t('income')}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -174,7 +230,7 @@ const HomeScreen = ({ navigation }) => {
                             </View>
                             <View>
                                 <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalIncome')}</Text>
-                                <Text style={[styles.value, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(budget)}</Text>
+                                <Text style={[styles.value, { textAlign: isRTL ? 'right' : 'left' }]}>{maskAmount(budget)}</Text>
                             </View>
                         </View>
                         <View style={styles.summaryItem}>
@@ -183,7 +239,7 @@ const HomeScreen = ({ navigation }) => {
                             </View>
                             <View>
                                 <Text style={[styles.subLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('spent')}</Text>
-                                <Text style={[styles.valueWarning, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(totalSpent)}</Text>
+                                <Text style={[styles.valueWarning, { textAlign: isRTL ? 'right' : 'left' }]}>{maskAmount(totalSpent)}</Text>
                             </View>
                         </View>
                     </View>
@@ -261,7 +317,7 @@ const HomeScreen = ({ navigation }) => {
                             <Ionicons name="apps" size={20} color={COLORS.primary} />
                         </View>
                         <Text style={styles.bankStatName}>{isRTL ? 'الكل' : 'All'}</Text>
-                        <Text style={styles.bankStatAmount}>{formatCurrency(totalSpent)}</Text>
+                        <Text style={styles.bankStatAmount}>{maskAmount(totalSpent)}</Text>
                     </TouchableOpacity>
 
                     {/* Dynamic Bank Cards */}
@@ -284,7 +340,7 @@ const HomeScreen = ({ navigation }) => {
                                 <Ionicons name="card-outline" size={20} color={COLORS.textSecondary} />
                             </View>
                             <Text style={styles.bankStatName} numberOfLines={1}>{bankName}</Text>
-                            <Text style={styles.bankStatAmount}>{formatCurrency(amount)}</Text>
+                            <Text style={styles.bankStatAmount}>{maskAmount(amount)}</Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
@@ -324,7 +380,7 @@ const HomeScreen = ({ navigation }) => {
                                         <Ionicons name="card" size={20} color="#FFF" />
                                     </View>
                                     <Text style={styles.bankStatName}>**** {cardNum}</Text>
-                                    <Text style={styles.bankStatAmount}>{formatCurrency(amount)}</Text>
+                                    <Text style={styles.bankStatAmount}>{maskAmount(amount)}</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -390,20 +446,27 @@ const HomeScreen = ({ navigation }) => {
                     filteredTransactions.slice(0, settings.dashboardLayout.transactionLimit).map((tx) => {
                         const category = getCategoryById(tx.category || 'Uncategorized');
                         return (
-                            <Card key={tx.id} style={[styles.transactionCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                            <TouchableOpacity 
+                                key={tx.id} 
+                                style={[styles.transactionCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                activeOpacity={0.7}
+                            >
                                 <View style={[styles.txIcon, {
-                                    backgroundColor: `${category.color}20`,
+                                    backgroundColor: `${category.color}15`,
                                     marginRight: isRTL ? 0 : SPACING.m,
                                     marginLeft: isRTL ? SPACING.m : 0
                                 }]}>
                                     <Ionicons name={category.icon} size={20} color={category.color} />
                                 </View>
                                 <View style={styles.txDetails}>
-                                    <Text style={[styles.txMerchant, { textAlign: isRTL ? 'right' : 'left' }]}>{tx.merchant}</Text>
-                                    <Text style={[styles.txDate, { textAlign: isRTL ? 'right' : 'left' }]}>{new Date(tx.date).toLocaleDateString()}</Text>
+                                    <Text style={[styles.txMerchant, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>{tx.merchant}</Text>
+                                    <Text style={[styles.txDate, { textAlign: isRTL ? 'right' : 'left' }]}>{new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}</Text>
                                 </View>
-                                <Text style={styles.txAmount}>-{formatCurrency(tx.amount)}</Text>
-                            </Card>
+                                <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+                                    <Text style={styles.txAmount}>-{maskAmount(tx.amount)}</Text>
+                                    <Text style={styles.txBank}>{tx.bankName}</Text>
+                                </View>
+                            </TouchableOpacity>
                         );
                     })
                 )}
@@ -416,6 +479,38 @@ const HomeScreen = ({ navigation }) => {
                 onClose={() => setShowFilterModal(false)}
                 onApply={handleApplyFilters}
             />
+
+            {/* Category selection Modal */}
+            {showCategoryPicker && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{isRTL ? 'اختر التصنيف المناسب' : 'Choose Category'}</Text>
+                        <Text style={styles.modalSubtitle}>{selectedTxToCategorize?.merchant}</Text>
+                        <ScrollView style={{ maxHeight: 400 }}>
+                            <View style={styles.categoryGrid}>
+                                {(require('../utils/categories').CATEGORIES || []).map(cat => (
+                                    <TouchableOpacity
+                                        key={cat.id}
+                                        style={styles.categoryItem}
+                                        onPress={() => handleCategorize(selectedTxToCategorize, cat.id)}
+                                    >
+                                        <View style={[styles.categoryIcon, { backgroundColor: cat.color + '20' }]}>
+                                            <Ionicons name={cat.icon} size={24} color={cat.color} />
+                                        </View>
+                                        <Text style={styles.categoryText}>{isRTL ? cat.nameAr : cat.nameEn}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </ScrollView>
+                        <TouchableOpacity
+                            style={styles.closeModalBtn}
+                            onPress={() => setShowCategoryPicker(false)}
+                        >
+                            <Text style={styles.closeModalBtnText}>{t('cancel')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </SafeAreaView>
     );
 };
@@ -533,7 +628,29 @@ const styles = StyleSheet.create({
     },
     actionText: {
         color: COLORS.surface,
-        fontWeight: '600',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    headerIconBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    editIncomeText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginLeft: 4,
+    },
+    txBank: {
+        fontSize: 10,
+        color: COLORS.textMuted,
+        marginTop: 2,
     },
     alertBanner: {
         marginBottom: SPACING.m,
@@ -625,6 +742,7 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         fontSize: 14,
         fontWeight: '600',
+        争取: 'right'
     },
     bankStatsList: {
         gap: SPACING.m,
@@ -666,7 +784,104 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         backgroundColor: COLORS.primary + '05',
     },
+    // Uncategorized Styles
+    uncategorizedCard: {
+        backgroundColor: '#FFFBEB',
+        borderColor: '#F59E0B',
+        borderWidth: 1,
+        marginBottom: SPACING.m,
+    },
+    uncategorizedTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#92400E',
+    },
+    uncategorizedBadge: {
+        backgroundColor: '#FFF',
+        padding: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FEF3C7',
+        marginRight: 10,
+        minWidth: 120,
+    },
+    uncategorizedBadgeText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    uncategorizedBadgeAmount: {
+        fontSize: 12,
+        color: COLORS.error,
+        marginTop: 4,
+    },
+    // Category Picker Styles
+    modalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+    },
+    modalContent: {
+        width: '90%',
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 20,
+        ...SHADOWS?.medium,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 5,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    categoryGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    categoryItem: {
+        width: '30%',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    categoryIcon: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 5,
+    },
+    categoryText: {
+        fontSize: 10,
+        textAlign: 'center',
+        color: COLORS.text,
+    },
+    closeModalBtn: {
+        marginTop: 10,
+        padding: 15,
+        alignItems: 'center',
+    },
+    closeModalBtnText: {
+        color: COLORS.error,
+        fontWeight: 'bold',
+    },
+    balanceRow: {
+        alignItems: 'center',
+        gap: 10,
+    },
+    eyeBtn: {
+        padding: 4,
+    },
 });
 
 export default HomeScreen;
-

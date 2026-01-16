@@ -6,7 +6,7 @@ import { getCategoryById } from '../utils/categories';
 import { useTranslation } from '../store';
 
 const CategoryStats = ({ transactions }) => {
-    const { t } = useTranslation();
+    const { t, isRTL } = useTranslation();
 
     // Group transactions by category
     const categoryTotals = (transactions || []).reduce((acc, tx) => {
@@ -33,7 +33,7 @@ const CategoryStats = ({ transactions }) => {
 
     // Prepare data for pie chart
     const chartData = categoryData.map((item) => ({
-        name: t(item.category),
+        name: isRTL ? '' : t(item.category),
         amount: item.amount,
         color: item.color,
         legendFontColor: COLORS.text,
@@ -44,7 +44,7 @@ const CategoryStats = ({ transactions }) => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>{t('categoryStatistics')}</Text>
+            <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t('categoryStatistics')}</Text>
             <PieChart
                 data={chartData}
                 width={screenWidth}
@@ -54,8 +54,9 @@ const CategoryStats = ({ transactions }) => {
                 }}
                 accessor="amount"
                 backgroundColor="transparent"
-                paddingLeft="15"
+                paddingLeft={isRTL ? "40" : "15"}
                 absolute
+                hasLegend={!isRTL}
             />
             <View style={styles.statsContainer}>
                 {categoryData.map((item, index) => {

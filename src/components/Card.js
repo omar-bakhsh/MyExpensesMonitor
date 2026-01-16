@@ -2,18 +2,29 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { COLORS, SHADOWS, SPACING } from '../utils/theme';
 
-const Card = ({ children, style }) => {
-    return <View style={[styles.card, style]}>{children}</View>;
+const Card = ({ children, style, variant = 'elevated' }) => {
+    return (
+        <View style={[
+            styles.card, 
+            variant === 'elevated' ? SHADOWS.soft : styles.outlined,
+            style
+        ]}>
+            {children}
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
     card: {
         backgroundColor: COLORS.surface,
-        borderRadius: 16,
+        borderRadius: 20,
         padding: SPACING.m,
         marginBottom: SPACING.m,
-        ...SHADOWS.light,
     },
+    outlined: {
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+    }
 });
 
 export default Card;

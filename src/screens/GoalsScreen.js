@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, StatusBar, Platform } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { useExpensesStore, useTranslation } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
 import * as Progress from 'react-native-progress';
 
-const GoalsScreen = () => {
+const GoalsScreen = ({ navigation }) => {
     const { t, isRTL } = useTranslation();
     const { savingsGoals: rawGoals, addGoal, updateGoal, deleteGoal } = useExpensesStore();
     const savingsGoals = rawGoals || [];
@@ -40,75 +40,93 @@ const GoalsScreen = () => {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="dark-content" />
             <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
+                </TouchableOpacity>
                 <Text style={styles.title}>{t('savingsGoals')}</Text>
                 <TouchableOpacity style={styles.addBtn} onPress={handleAddGoal}>
-                    <Ionicons name="add" size={24} color={COLORS.surface} />
+                    <Ionicons name="add" size={24} color={COLORS.white} />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {savingsGoals.length === 0 ? (
-                    <Card style={styles.emptyState}>
-                        <Ionicons name="flag-outline" size={48} color={COLORS.textSecondary} />
+                    <View style={styles.emptyStateContainer}>
+                        <View style={styles.emptyIconWrapper}>
+                            <Ionicons name="flag-outline" size={64} color={COLORS.primary + '30'} />
+                        </View>
                         <Text style={styles.emptyText}>{t('noGoals')}</Text>
                         <Text style={styles.emptySubtext}>{t('createFirstGoal')}</Text>
-                    </Card>
+                        <TouchableOpacity style={styles.emptyAddBtn} onPress={handleAddGoal}>
+                            <Text style={styles.emptyAddBtnText}>{t('createGoal')}</Text>
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     savingsGoals.map((goal) => {
                         const progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0;
                         const daysLeft = Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24));
 
                         return (
-                            <Card key={goal.id} style={styles.goalCard}>
+                            <Card key={goal.id} style={styles.goalCard} variant="elevated">
                                 <View style={[styles.goalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                    <View style={[styles.iconContainer, { backgroundColor: `${goal.color}20` }]}>
+                                    <View style={[styles.iconContainer, { backgroundColor: `${goal.color}15` }]}>
                                         <Ionicons name={goal.icon} size={24} color={goal.color} />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.goalName, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                            {isRTL ? goal.nameAr : goal.name}
+                                            {isRTL ? (goal.nameAr || goal.name) : goal.name}
                                         </Text>
                                         <Text style={[styles.goalDeadline, { textAlign: isRTL ? 'right' : 'left' }]}>
                                             {daysLeft > 0 ? `${daysLeft} ${t('daysLeft')}` : t('expired')}
                                         </Text>
                                     </View>
                                     <View style={[styles.actions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                        <TouchableOpacity onPress={() => handleEditGoal(goal)}>
-                                            <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+                                        <TouchableOpacity onPress={() => handleEditGoal(goal)} style={styles.actionIconBtn}>
+                                            <Ionicons name="pencil" size={18} color={COLORS.primary} />
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => handleDeleteGoal(goal.id)}>
-                                            <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                                        <TouchableOpacity onPress={() => handleDeleteGoal(goal.id)} style={[styles.actionIconBtn, { backgroundColor: COLORS.error + '10' }]}>
+                                            <Ionicons name="trash" size={18} color={COLORS.error} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
 
                                 <View style={styles.progressSection}>
+                                    <View style={[styles.amountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                        <View style={{flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'baseline'}}>
+                                            <Text style={styles.currentAmount}>
+                                                {goal.currentAmount.toLocaleString()}
+                                            </Text>
+                                            <Text style={styles.currency}> {t('sar')}</Text>
+                                        </View>
+                                        <Text style={styles.percentageText}>
+                                            {(progress * 100).toFixed(0)}%
+                                        </Text>
+                                    </View>
+                                    
                                     <Progress.Bar
                                         progress={progress}
                                         width={null}
-                                        height={8}
+                                        height={10}
                                         color={goal.color}
-                                        unfilledColor="#E5E7EB"
+                                        unfilledColor={COLORS.surfaceVariant}
                                         borderWidth={0}
-                                        borderRadius={4}
+                                        borderRadius={5}
+                                        style={styles.progressBar}
                                     />
-                                    <View style={[styles.amountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                        <Text style={styles.currentAmount}>
-                                            {goal.currentAmount.toLocaleString()} {t('sar')}
-                                        </Text>
+                                    
+                                    <View style={[styles.targetRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                        <Text style={styles.targetLabel}>{t('targetAmount')}</Text>
                                         <Text style={styles.targetAmount}>
-                                            / {goal.targetAmount.toLocaleString()} {t('sar')}
+                                            {goal.targetAmount.toLocaleString()} {t('sar')}
                                         </Text>
                                     </View>
-                                    <Text style={[styles.percentage, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                        {(progress * 100).toFixed(0)}% {t('completed')}
-                                    </Text>
                                 </View>
 
                                 {goal.isCompleted && (
-                                    <View style={styles.completedBadge}>
-                                        <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                                    <View style={[styles.completedBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
                                         <Text style={styles.completedText}>{t('goalAchieved')}</Text>
                                     </View>
                                 )}
@@ -145,8 +163,20 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
     const [selectedIcon, setSelectedIcon] = useState(goal?.icon || 'flag');
     const [selectedColor, setSelectedColor] = useState(goal?.color || COLORS.primary);
 
+    React.useEffect(() => {
+        if (visible) {
+            setName(goal?.name || '');
+            setNameAr(goal?.nameAr || '');
+            setTargetAmount(goal?.targetAmount?.toString() || '');
+            setCurrentAmount(goal?.currentAmount?.toString() || '0');
+            setDeadline(goal?.deadline || '');
+            setSelectedIcon(goal?.icon || 'flag');
+            setSelectedColor(goal?.color || COLORS.primary);
+        }
+    }, [visible, goal]);
+
     const icons = ['flag', 'home', 'car', 'airplane', 'school', 'medical', 'wallet', 'gift'];
-    const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#84CC16'];
+    const colors = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#84CC16'];
 
     const handleSave = () => {
         if (!name || !targetAmount) {
@@ -155,6 +185,7 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
         }
 
         const goalData = {
+            id: goal?.id || Date.now().toString(),
             name,
             nameAr: nameAr || name,
             targetAmount: parseFloat(targetAmount),
@@ -162,6 +193,7 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
             deadline: deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             icon: selectedIcon,
             color: selectedColor,
+            isCompleted: parseFloat(currentAmount) >= parseFloat(targetAmount)
         };
 
         onSave(goalData);
@@ -172,67 +204,70 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                     <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+                            <Ionicons name="close" size={24} color={COLORS.text} />
+                        </TouchableOpacity>
                         <Text style={styles.modalTitle}>
                             {goal ? t('editGoal') : t('createGoal')}
                         </Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close" size={24} color={COLORS.text} />
-                        </TouchableOpacity>
+                        <View style={{ width: 44 }} />
                     </View>
 
-                    <ScrollView style={styles.modalBody}>
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                {t('goalName')} (English)
-                            </Text>
-                            <TextInput
-                                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder={t('enterGoalName')}
-                            />
+                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                        <View style={styles.inputCard}>
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                    {t('goalName')} (English)
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder={t('enterGoalName')}
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                    {t('goalName')} (العربية)
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, { textAlign: 'right' }]}
+                                    value={nameAr}
+                                    onChangeText={setNameAr}
+                                    placeholder="مثلاً: شراء سيارة جديدة"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                    {t('targetAmount')} ({t('sar')})
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                                    value={targetAmount}
+                                    onChangeText={setTargetAmount}
+                                    keyboardType="numeric"
+                                    placeholder="0"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                    {t('currentAmount')} ({t('sar')})
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                                    value={currentAmount}
+                                    onChangeText={setCurrentAmount}
+                                    keyboardType="numeric"
+                                    placeholder="0"
+                                />
+                            </View>
                         </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                {t('goalName')} (العربية)
-                            </Text>
-                            <TextInput
-                                style={[styles.input, { textAlign: 'right' }]}
-                                value={nameAr}
-                                onChangeText={setNameAr}
-                                placeholder="أدخل اسم الهدف"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                {t('targetAmount')}
-                            </Text>
-                            <TextInput
-                                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                                value={targetAmount}
-                                onChangeText={setTargetAmount}
-                                keyboardType="numeric"
-                                placeholder="0"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                {t('currentAmount')}
-                            </Text>
-                            <TextInput
-                                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                                value={currentAmount}
-                                onChangeText={setCurrentAmount}
-                                keyboardType="numeric"
-                                placeholder="0"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                        <View style={[styles.inputCard, { marginTop: SPACING.m }]}>
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left', marginBottom: SPACING.m }]}>
                                 {t('icon')}
                             </Text>
                             <View style={styles.iconGrid}>
@@ -247,16 +282,14 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
                                     >
                                         <Ionicons
                                             name={icon}
-                                            size={24}
-                                            color={selectedIcon === icon ? COLORS.surface : COLORS.text}
+                                            size={22}
+                                            color={selectedIcon === icon ? COLORS.white : COLORS.textSecondary}
                                         />
                                     </TouchableOpacity>
                                 ))}
                             </View>
-                        </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left', marginTop: SPACING.l, marginBottom: SPACING.m }]}>
                                 {t('color')}
                             </Text>
                             <View style={styles.colorGrid}>
@@ -266,17 +299,18 @@ const GoalModal = ({ visible, goal, onClose, onSave }) => {
                                         style={[
                                             styles.colorOption,
                                             { backgroundColor: color },
-                                            selectedColor === color && styles.colorSelected
                                         ]}
                                         onPress={() => setSelectedColor(color)}
                                     >
                                         {selectedColor === color && (
-                                            <Ionicons name="checkmark" size={20} color={COLORS.surface} />
+                                            <Ionicons name="checkmark" size={20} color={COLORS.white} />
                                         )}
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         </View>
+                        
+                        <View style={{height: 40}} />
                     </ScrollView>
 
                     <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
@@ -292,202 +326,264 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
-        paddingTop: 50,
     },
     header: {
-        flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingTop: 50,
         paddingHorizontal: SPACING.m,
-        marginBottom: SPACING.l,
+        paddingBottom: SPACING.m,
+        backgroundColor: COLORS.white,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.surfaceVariant,
+        borderRadius: 22,
     },
     title: {
-        fontSize: 24,
-        fontFamily: FONTS.bold,
+        fontSize: 20,
         fontWeight: 'bold',
         color: COLORS.text,
     },
     addBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: COLORS.primary,
         alignItems: 'center',
         justifyContent: 'center',
+        ...SHADOWS.light,
     },
     content: {
-        paddingHorizontal: SPACING.m,
-        paddingBottom: SPACING.l,
+        padding: SPACING.m,
     },
-    emptyState: {
+    emptyStateContainer: {
+        flex: 1,
         alignItems: 'center',
-        padding: SPACING.xl,
+        justifyContent: 'center',
+        paddingTop: 100,
+    },
+    emptyIconWrapper: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: COLORS.primary + '10',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: SPACING.l,
     },
     emptyText: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: 'bold',
         color: COLORS.text,
-        marginTop: SPACING.m,
     },
     emptySubtext: {
         fontSize: 14,
         color: COLORS.textSecondary,
         marginTop: SPACING.s,
+        textAlign: 'center',
+        paddingHorizontal: SPACING.xl,
+    },
+    emptyAddBtn: {
+        marginTop: SPACING.xl,
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: SPACING.xl,
+        paddingVertical: SPACING.m,
+        borderRadius: 16,
+    },
+    emptyAddBtnText: {
+        color: COLORS.white,
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     goalCard: {
         marginBottom: SPACING.m,
+        padding: SPACING.l,
     },
     goalHeader: {
-        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: SPACING.m,
+        marginBottom: SPACING.l,
         gap: SPACING.m,
     },
     iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 54,
+        height: 54,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
     },
     goalName: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 18,
+        fontWeight: 'bold',
         color: COLORS.text,
     },
     goalDeadline: {
         fontSize: 12,
-        color: COLORS.textSecondary,
-        marginTop: 2,
+        color: COLORS.textMuted,
+        marginTop: 4,
     },
     actions: {
-        flexDirection: 'row',
-        gap: SPACING.m,
+        gap: SPACING.s,
+    },
+    actionIconBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: COLORS.primary + '10',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     progressSection: {
-        marginTop: SPACING.s,
     },
     amountRow: {
-        flexDirection: 'row',
-        marginTop: SPACING.s,
-        gap: 4,
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        marginBottom: 8,
     },
     currentAmount: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: 'bold',
         color: COLORS.text,
     },
-    targetAmount: {
-        fontSize: 16,
+    currency: {
+        fontSize: 14,
         color: COLORS.textSecondary,
+        fontWeight: '600',
     },
-    percentage: {
+    percentageText: {
         fontSize: 14,
         color: COLORS.primary,
-        marginTop: 4,
-        fontWeight: '600',
+        fontWeight: 'bold',
+    },
+    progressBar: {
+        marginBottom: SPACING.s,
+    },
+    targetRow: {
+        justifyContent: 'space-between',
+    },
+    targetLabel: {
+        fontSize: 12,
+        color: COLORS.textMuted,
+    },
+    targetAmount: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.textSecondary,
     },
     completedBadge: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        marginTop: SPACING.m,
+        gap: 6,
+        marginTop: SPACING.l,
         padding: SPACING.s,
-        backgroundColor: '#D1FAE5',
-        borderRadius: 8,
+        backgroundColor: COLORS.success + '15',
+        borderRadius: 12,
+        justifyContent: 'center',
     },
     completedText: {
-        fontSize: 14,
+        fontSize: 13,
         color: COLORS.success,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: COLORS.overlay,
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: COLORS.surface,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: '90%',
-        paddingBottom: SPACING.l,
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '92%',
+        paddingBottom: SPACING.xl,
     },
     modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        padding: SPACING.l,
         alignItems: 'center',
-        padding: SPACING.m,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        backgroundColor: COLORS.white,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    modalCloseBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
     modalBody: {
         padding: SPACING.m,
     },
+    inputCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: SPACING.l,
+        ...SHADOWS.soft,
+    },
     inputGroup: {
         marginBottom: SPACING.m,
     },
     label: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '700',
         color: COLORS.textSecondary,
         marginBottom: SPACING.s,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     input: {
-        backgroundColor: '#F3F4F6',
-        padding: SPACING.m,
-        borderRadius: 12,
         fontSize: 16,
+        color: COLORS.text,
+        paddingVertical: SPACING.s,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
     },
     iconGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: SPACING.s,
+        gap: 12,
+        justifyContent: 'space-between',
     },
     iconOption: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#F3F4F6',
+        width: '22%',
+        aspectRatio: 1,
+        borderRadius: 16,
+        backgroundColor: COLORS.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
+        marginBottom: 4,
     },
     colorGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: SPACING.s,
+        gap: 12,
     },
     colorOption: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    colorSelected: {
-        borderWidth: 3,
-        borderColor: COLORS.surface,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
     },
     saveBtn: {
         backgroundColor: COLORS.primary,
         padding: SPACING.m,
-        borderRadius: 12,
+        borderRadius: 16,
         alignItems: 'center',
-        marginHorizontal: SPACING.m,
-        marginTop: SPACING.m,
+        marginHorizontal: SPACING.l,
+        marginBottom: SPACING.m,
+        ...SHADOWS.light,
     },
     saveBtnText: {
-        color: COLORS.surface,
+        color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
     },

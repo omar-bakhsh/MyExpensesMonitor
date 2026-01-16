@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, StatusBar } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useExpensesStore, useTranslation } from '../store';
 import { useNavigation } from '@react-navigation/native';
+import Card from '../components/Card';
 
 const IncomeScreen = () => {
     const { t, isRTL } = useTranslation();
@@ -58,7 +59,7 @@ const IncomeScreen = () => {
             [
                 { text: t('cancel'), style: 'cancel' },
                 {
-                    text: t('deleteGoal'), // Reusing delete action text
+                    text: t('delete'),
                     style: 'destructive',
                     onPress: () => {
                         const updatedSources = incomeSources.filter(s => s.id !== id);
@@ -91,29 +92,32 @@ const IncomeScreen = () => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name={isRTL ? "chevron-forward" : "chevron-back"} size={24} color={COLORS.text} />
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
                 </TouchableOpacity>
                 <Text style={styles.title}>{t('income')}</Text>
                 <TouchableOpacity onPress={() => openModal()} style={styles.addBtn}>
-                    <Ionicons name="add" size={28} color={COLORS.primary} />
+                    <Ionicons name="add" size={28} color={COLORS.white} />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Total Income Card */}
-                <View style={styles.totalCard}>
+                <Card style={styles.totalCard} variant="elevated">
                     <Text style={styles.totalLabel}>{t('totalIncome')}</Text>
                     <Text style={styles.totalAmount}>{totalIncome.toLocaleString()} {t('sar')}</Text>
-                </View>
+                </Card>
 
                 {/* Income Sources List */}
                 <View style={styles.listSection}>
-                    <Text style={styles.sectionTitle}>{t('incomeSources')}</Text>
+                    <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('incomeSources')}</Text>
                     {incomeSources.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <Ionicons name="card-outline" size={60} color="#CBD5E1" />
+                            <View style={styles.emptyIconWrapper}>
+                                <Ionicons name="card-outline" size={64} color={COLORS.primary + '20'} />
+                            </View>
                             <Text style={styles.emptyText}>{t('noDataAvailable')}</Text>
                         </View>
                     ) : (
@@ -122,22 +126,26 @@ const IncomeScreen = () => {
                             return (
                                 <TouchableOpacity
                                     key={source.id}
-                                    style={styles.sourceItem}
+                                    activeOpacity={0.7}
                                     onPress={() => openModal(source)}
                                 >
-                                    <View style={[styles.iconContainer, { backgroundColor: typeInfo.color + '20' }]}>
-                                        <Ionicons name={typeInfo.icon} size={24} color={typeInfo.color} />
-                                    </View>
-                                    <View style={styles.sourceInfo}>
-                                        <Text style={styles.sourceName}>{typeInfo.label}</Text>
-                                        {source.note ? <Text style={styles.sourceNote}>{source.note}</Text> : null}
-                                    </View>
-                                    <View style={styles.sourceRight}>
-                                        <Text style={styles.sourceAmount}>+{source.amount} {t('sar')}</Text>
-                                        <TouchableOpacity onPress={() => handleDelete(source.id)} style={styles.deleteBtn}>
-                                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                                        </TouchableOpacity>
-                                    </View>
+                                    <Card style={styles.sourceItem} variant="outlined">
+                                        <View style={[styles.sourceItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                            <View style={[styles.iconContainer, { backgroundColor: typeInfo.color + '15' }]}>
+                                                <Ionicons name={typeInfo.icon} size={24} color={typeInfo.color} />
+                                            </View>
+                                            <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                                                <Text style={[styles.sourceName, { textAlign: isRTL ? 'right' : 'left' }]}>{typeInfo.label}</Text>
+                                                {source.note ? <Text style={[styles.sourceNote, { textAlign: isRTL ? 'right' : 'left' }]}>{source.note}</Text> : null}
+                                            </View>
+                                            <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+                                                <Text style={styles.sourceAmount}>+{source.amount} {t('sar')}</Text>
+                                                <TouchableOpacity onPress={() => handleDelete(source.id)} style={styles.deleteBtn}>
+                                                    <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </Card>
                                 </TouchableOpacity>
                             );
                         })
@@ -154,76 +162,88 @@ const IncomeScreen = () => {
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.modalOverlay}>
-                        <KeyboardAvoidingView
-                            behavior={Platform.OS === "ios" ? "padding" : "height"}
-                            style={styles.modalKeyboardAvoid}
-                        >
-                            <View style={styles.modalContent}>
-                                <View style={styles.modalHeader}>
-                                    <Text style={styles.modalTitle}>{editingId ? t('editIncome') : t('addIncomeSource')}</Text>
-                                    <TouchableOpacity onPress={closeModal}>
-                                        <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                                    </TouchableOpacity>
-                                </View>
+                        <View style={styles.modalContent}>
+                            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn}>
+                                    <Ionicons name="close" size={24} color={COLORS.text} />
+                                </TouchableOpacity>
+                                <Text style={styles.modalTitle}>{editingId ? t('editIncome') : t('addIncomeSource')}</Text>
+                                <View style={{ width: 44 }} />
+                            </View>
 
-                                <ScrollView showsVerticalScrollIndicator={false}>
+                            <ScrollView showsVerticalScrollIndicator={false} style={{ padding: SPACING.m }}>
+                                <View style={styles.inputCard}>
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>{t('incomeAmount')}</Text>
+                                        <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('incomeAmount')}</Text>
                                         <TextInput
-                                            style={styles.input}
+                                            style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
                                             value={amount}
                                             onChangeText={setAmount}
                                             keyboardType="numeric"
                                             placeholder="0.00"
-                                            placeholderTextColor="#94A3B8"
+                                            placeholderTextColor={COLORS.textMuted}
+                                            autoFocus
                                         />
                                     </View>
 
+                                    <View style={[styles.divider, { marginVertical: SPACING.l }]} />
+
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>{t('incomeType')}</Text>
+                                        <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left', marginBottom: SPACING.m }]}>
+                                            {t('incomeType')}
+                                        </Text>
                                         <View style={styles.typeGrid}>
-                                            {incomeTypes.map((iType) => (
-                                                <TouchableOpacity
-                                                    key={iType.id}
-                                                    style={[
-                                                        styles.typeItem,
-                                                        type === iType.id && styles.typeItemActive
-                                                    ]}
-                                                    onPress={() => setType(iType.id)}
-                                                >
-                                                    <Ionicons
-                                                        name={iType.icon}
-                                                        size={24}
-                                                        color={type === iType.id ? '#FFF' : iType.color}
-                                                    />
-                                                    <Text style={[
-                                                        styles.typeLabel,
-                                                        type === iType.id && styles.typeLabelActive
-                                                    ]}>{iType.label}</Text>
-                                                </TouchableOpacity>
-                                            ))}
+                                            {incomeTypes.map((iType) => {
+                                                const isSelected = type === iType.id;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={iType.id}
+                                                        style={[
+                                                            styles.typeItem,
+                                                            isSelected && { backgroundColor: iType.color + '15', borderColor: iType.color }
+                                                        ]}
+                                                        onPress={() => setType(iType.id)}
+                                                    >
+                                                        <View style={[styles.catIconWrapper, { backgroundColor: isSelected ? iType.color : COLORS.surfaceVariant }]}>
+                                                            <Ionicons
+                                                                name={iType.icon}
+                                                                size={20}
+                                                                color={isSelected ? COLORS.white : COLORS.textSecondary}
+                                                            />
+                                                        </View>
+                                                        <Text style={[
+                                                            styles.typeText,
+                                                            isSelected && { color: iType.color, fontWeight: '700' }
+                                                        ]}>
+                                                            {iType.label}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
                                         </View>
                                     </View>
 
+                                    <View style={[styles.divider, { marginVertical: SPACING.l }]} />
+
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>{t('note')}</Text>
+                                        <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('note')}</Text>
                                         <TextInput
-                                            style={[styles.input, styles.textArea]}
+                                            style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
                                             value={note}
                                             onChangeText={setNote}
                                             placeholder={t('note')}
-                                            placeholderTextColor="#94A3B8"
-                                            multiline
-                                            numberOfLines={3}
+                                            placeholderTextColor={COLORS.textMuted}
                                         />
                                     </View>
+                                </View>
 
-                                    <TouchableOpacity style={styles.saveBtn} onPress={handleAddOrUpdate}>
-                                        <Text style={styles.saveBtnText}>{t('save')}</Text>
-                                    </TouchableOpacity>
-                                </ScrollView>
-                            </View>
-                        </KeyboardAvoidingView>
+                                <TouchableOpacity style={styles.saveBtn} onPress={handleAddOrUpdate}>
+                                    <Text style={styles.saveBtnText}>{t('save')}</Text>
+                                </TouchableOpacity>
+                                
+                                <View style={{ height: 40 }} />
+                            </ScrollView>
+                        </View>
                     </View>
                 </TouchableWithoutFeedback>
             </Modal>
@@ -237,16 +257,20 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 50,
         paddingHorizontal: SPACING.m,
-        paddingTop: 60,
         paddingBottom: SPACING.m,
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS.white,
     },
     backBtn: {
-        padding: 5,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     title: {
         fontSize: 18,
@@ -254,7 +278,13 @@ const styles = StyleSheet.create({
         color: COLORS.text,
     },
     addBtn: {
-        padding: 5,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...SHADOWS.light,
     },
     content: {
         padding: SPACING.m,
@@ -262,167 +292,173 @@ const styles = StyleSheet.create({
     totalCard: {
         backgroundColor: COLORS.primary,
         padding: SPACING.xl,
-        borderRadius: 24,
         alignItems: 'center',
         marginBottom: SPACING.xl,
-        elevation: 4,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
     },
     totalLabel: {
         color: 'rgba(255,255,255,0.8)',
         fontSize: 14,
         fontWeight: '600',
-        marginBottom: SPACING.s,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     totalAmount: {
         color: '#FFF',
         fontSize: 32,
         fontWeight: 'bold',
+        marginTop: SPACING.s,
     },
     listSection: {
         flex: 1,
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: SPACING.m,
     },
     sourceItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.surface,
         padding: SPACING.m,
-        borderRadius: 16,
-        marginBottom: SPACING.m,
+        marginBottom: SPACING.s,
+    },
+    sourceItemContent: {
+        alignItems: 'center',
     },
     iconContainer: {
         width: 48,
         height: 48,
-        borderRadius: 12,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: SPACING.m,
-    },
-    sourceInfo: {
-        flex: 1,
     },
     sourceName: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
     },
     sourceNote: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS.textMuted,
         marginTop: 2,
-    },
-    sourceRight: {
-        alignItems: 'flex-end',
-        gap: SPACING.s,
     },
     sourceAmount: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#10B981',
+        color: COLORS.secondary,
     },
     deleteBtn: {
+        marginTop: 4,
         padding: 4,
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 40,
+        paddingVertical: 60,
+    },
+    emptyIconWrapper: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: COLORS.primary + '10',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: SPACING.m,
     },
     emptyText: {
-        marginTop: SPACING.m,
-        color: COLORS.textSecondary,
-        fontSize: 14,
+        color: COLORS.textMuted,
+        fontSize: 16,
+        fontWeight: '600',
     },
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: COLORS.overlay,
         justifyContent: 'flex-end',
     },
-    modalKeyboardAvoid: {
-        width: '100%',
-    },
     modalContent: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS.background,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        padding: SPACING.l,
-        maxHeight: '90%',
+        maxHeight: '92%',
     },
     modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        padding: SPACING.l,
         alignItems: 'center',
-        marginBottom: SPACING.l,
+        backgroundColor: COLORS.white,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    modalCloseBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
-    inputGroup: {
-        marginBottom: SPACING.l,
+    inputCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: SPACING.l,
+        ...SHADOWS.soft,
     },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: '600',
+    inputGroup: {
+    },
+    label: {
+        fontSize: 13,
+        fontWeight: '700',
         color: COLORS.textSecondary,
-        marginBottom: SPACING.s,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     input: {
-        backgroundColor: COLORS.background,
-        borderRadius: 16,
-        padding: SPACING.m,
         fontSize: 18,
         color: COLORS.text,
-        fontWeight: '600',
+        paddingVertical: SPACING.s,
     },
-    textArea: {
-        minHeight: 80,
-        textAlignVertical: 'top',
+    divider: {
+        height: 1,
+        backgroundColor: COLORS.border,
     },
     typeGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: SPACING.s,
+        gap: 12,
     },
     typeItem: {
-        width: '31%',
-        aspectRatio: 1,
-        backgroundColor: COLORS.background,
-        borderRadius: 16,
-        justifyContent: 'center',
+        width: '30%',
         alignItems: 'center',
-        padding: 5,
+        padding: SPACING.s,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+        backgroundColor: COLORS.white,
     },
-    typeItemActive: {
-        backgroundColor: COLORS.primary,
+    catIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
     },
-    typeLabel: {
-        fontSize: 12,
-        marginTop: 4,
+    typeText: {
+        fontSize: 11,
         color: COLORS.textSecondary,
         textAlign: 'center',
     },
-    typeLabelActive: {
-        color: '#FFF',
-    },
     saveBtn: {
         backgroundColor: COLORS.primary,
-        borderRadius: 16,
         padding: SPACING.m,
+        borderRadius: 16,
         alignItems: 'center',
-        marginTop: SPACING.m,
-        marginBottom: SPACING.xl,
+        marginTop: SPACING.xl,
+        ...SHADOWS.light,
     },
     saveBtnText: {
         color: '#FFF',

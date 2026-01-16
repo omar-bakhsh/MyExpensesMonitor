@@ -16,6 +16,8 @@ import ReportsScreen from '../screens/ReportsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import TermsScreen from '../screens/TermsScreen';
 import IncomeScreen from '../screens/IncomeScreen';
+import SecurityScreen from '../screens/SecurityScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../store';
 
@@ -97,6 +99,14 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="Income"
                     component={IncomeScreen}
+                />
+                <Stack.Screen
+                    name="Security"
+                    component={SecurityScreen}
+                />
+                <Stack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
                 />
             </Stack.Navigator>
         </NavigationContainer>

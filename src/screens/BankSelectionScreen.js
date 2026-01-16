@@ -1,192 +1,217 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Alert, StatusBar } from 'react-native';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useExpensesStore, useTranslation } from '../store';
-import { SAUDI_BANKS, getBankName } from '../utils/banks';
+import { SAUDI_BANKS } from '../utils/banks';
+import Card from '../components/Card';
 
 const BankSelectionScreen = ({ navigation }) => {
-    const { t, language } = useTranslation();
-    const { banks, addBank, deleteBank } = useExpensesStore();
-    const [showAddModal, setShowAddModal] = useState(false);
+    const { t, language, isRTL } = useTranslation();
+    const { banks, addBank, deleteBank, updateBank } = useExpensesStore();
+    const [showModal, setShowModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [currentBankId, setCurrentBankId] = useState(null);
     const [customBankName, setCustomBankName] = useState('');
     const [customBankColor, setCustomBankColor] = useState('#4F46E5');
+    const [smsSenderIds, setSmsSenderIds] = useState('');
 
     const PRESET_COLORS = [
-        '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+        '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
         '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16'
     ];
 
-    const isBankSelected = (bankId) => {
-        return banks.some(b => b.id === bankId);
-    };
+    const isBankSelected = (bankId) => banks.some(b => b.id === bankId);
 
     const toggleBank = (bank) => {
         if (isBankSelected(bank.id)) {
-            deleteBank(bank.id);
+            confirmDelete(bank.id);
         } else {
             addBank(bank);
         }
     };
 
-    const handleAddCustomBank = () => {
+    const handleSaveBank = () => {
         if (!customBankName.trim()) {
             Alert.alert(t('error'), t('fillAllFields'));
             return;
         }
 
-        const customBank = {
-            id: `custom_${Date.now()}`,
-            name: customBankName,
-            nameAr: customBankName,
-            color: customBankColor,
-            type: 'bank',
-            isCustom: true
-        };
+        const senderIdsArray = smsSenderIds.split(',').map(id => id.trim()).filter(id => id !== '');
 
-        addBank(customBank);
-        setShowAddModal(false);
-        setCustomBankName('');
-        setCustomBankColor('#4F46E5');
-        Alert.alert(t('success'), t('bankAdded'));
+        if (isEditing && currentBankId) {
+            updateBank(currentBankId, {
+                name: customBankName,
+                nameAr: customBankName,
+                color: customBankColor,
+                smsSenderIds: senderIdsArray
+            });
+            Alert.alert(t('success'), language === 'ar' ? 'تم تحديث البنك بنجاح' : 'Bank updated successfully');
+        } else {
+            const newBank = {
+                id: 'custom_' + Date.now(),
+                name: customBankName,
+                nameAr: customBankName,
+                color: customBankColor,
+                icon: 'business',
+                smsSenderIds: senderIdsArray
+            };
+            addBank(newBank);
+        }
+        closeModal();
     };
 
-    const renderBankItem = (bank) => {
-        const isSelected = isBankSelected(bank.id);
-        const bankName = language === 'ar' ? bank.nameAr : bank.name;
-
-        // Get initials for bank logo
-        const initials = bank.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase();
-
-        return (
-            <TouchableOpacity
-                key={bank.id}
-                style={[styles.bankItem, isSelected && styles.bankItemSelected]}
-                onPress={() => toggleBank(bank)}
-            >
-                <View style={styles.bankLeft}>
-                    <View style={[styles.bankLogo, { backgroundColor: bank.color }]}>
-                        <Text style={styles.bankLogoText}>{initials}</Text>
-                    </View>
-                    <View style={styles.bankInfo}>
-                        <Text style={styles.bankName}>{bankName}</Text>
-                        <Text style={styles.bankType}>
-                            {bank.type === 'bank' ? 'Bank' : bank.type === 'wallet' ? 'Wallet' : 'Cash'}
-                        </Text>
-                    </View>
-                </View>
-                {isSelected && (
-                    <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-                )}
-            </TouchableOpacity>
+    const confirmDelete = (bankId) => {
+        Alert.alert(
+            t('confirmDelete') || (language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'),
+            t('confirmDeleteMessage') || (language === 'ar' ? 'هل أنت متأكد من حذف هذا البنك؟' : 'Are you sure you want to delete this bank?'),
+            [
+                { text: t('cancel'), style: 'cancel' },
+                { text: t('delete'), onPress: () => deleteBank(bankId), style: 'destructive' }
+            ]
         );
     };
 
-    const customBanks = banks.filter(b => b.isCustom);
+    const openEditModal = (bank) => {
+        setIsEditing(true);
+        setCurrentBankId(bank.id);
+        setCustomBankName(bank.nameAr || bank.name);
+        setCustomBankColor(bank.color || '#4F46E5');
+        setSmsSenderIds(bank.smsSenderIds ? bank.smsSenderIds.join(', ') : '');
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setIsEditing(false);
+        setCustomBankName('');
+        setCustomBankColor('#4F46E5');
+        setSmsSenderIds('');
+    };
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Text style={styles.title}>{t('bankSelection')}</Text>
-                <View style={{ width: 40 }} />
+                <Text style={styles.title}>{t('walletsAndBanks')}</Text>
+                <TouchableOpacity onPress={() => setShowModal(true)} style={styles.addButton}>
+                    <Ionicons name="add" size={28} color={COLORS.primary} />
+                </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                {/* My Banks Section */}
-                {banks.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>{t('myBanks')}</Text>
-                        <Text style={styles.sectionSubtitle}>
-                            {banks.length} {language === 'ar' ? 'بنك محدد' : 'banks selected'}
-                        </Text>
-                    </View>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('myBanks')}</Text>
+                {banks.length === 0 ? (
+                    <Card style={styles.emptyCard} variant="outlined">
+                        <Ionicons name="business-outline" size={48} color={COLORS.textMuted} />
+                        <Text style={styles.emptyText}>{isRTL ? 'لم تضف أي بنوك بعد' : 'No banks added yet'}</Text>
+                        <TouchableOpacity style={styles.emptyAddBtn} onPress={() => setShowModal(true)}>
+                            <Text style={styles.emptyAddText}>{t('addCustomBank')}</Text>
+                        </TouchableOpacity>
+                    </Card>
+                ) : (
+                    banks.map(bank => (
+                        <Card key={bank.id} style={styles.bankCard} variant="elevated">
+                            <View style={[styles.bankRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                <View style={[styles.bankIcon, { backgroundColor: bank.color + '20' }]}>
+                                    <Ionicons name="business" size={24} color={bank.color} />
+                                </View>
+                                <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                                    <Text style={[styles.bankName, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                        {language === 'ar' ? (bank.nameAr || bank.name) : bank.name}
+                                    </Text>
+                                    <Text style={[styles.bankInfo, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                        {bank.smsSenderIds && bank.smsSenderIds.length > 0 
+                                            ? `${isRTL ? 'معرف الرسائل' : 'SMS ID'}: ${bank.smsSenderIds.join(', ')}` 
+                                            : isRTL ? 'لا يوجد معرف للرسائل' : 'No SMS ID'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.actions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                    <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(bank)}>
+                                        <Ionicons name="pencil" size={20} color={COLORS.primary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.actionBtn} onPress={() => confirmDelete(bank.id)}>
+                                        <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </Card>
+                    ))
                 )}
 
-                {/* Available Banks */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>{t('availableBanks')}</Text>
-                    <Text style={styles.sectionSubtitle}>{t('selectBanks')}</Text>
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'بنوك مقترحة' : 'Suggested Banks'}</Text>
+                <View style={styles.grid}>
+                    {SAUDI_BANKS.filter(b => !isBankSelected(b.id)).map(bank => (
+                        <TouchableOpacity 
+                            key={bank.id} 
+                            style={styles.gridItem}
+                            onPress={() => toggleBank(bank)}
+                        >
+                            <View style={[styles.suggestedIcon, { backgroundColor: bank.color + '10' }]}>
+                                <Ionicons name="business-outline" size={28} color={bank.color} />
+                            </View>
+                            <Text style={styles.suggestedName} numberOfLines={1}>
+                                {language === 'ar' ? (bank.nameAr || bank.name) : bank.name}
+                            </Text>
+                            <View style={styles.suggestedAdd}>
+                                <Ionicons name="add" size={16} color={COLORS.primary} />
+                                <Text style={styles.suggestedAddText}>{isRTL ? 'إضافة' : 'Add'}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
                 </View>
-
-                {SAUDI_BANKS.map(bank => renderBankItem(bank))}
-
-                {/* Custom Banks */}
-                {customBanks.length > 0 && (
-                    <>
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>{t('addCustomBank')}</Text>
-                        </View>
-                        {customBanks.map(bank => renderBankItem(bank))}
-                    </>
-                )}
-
-                {/* Add Custom Bank Button */}
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setShowAddModal(true)}
-                >
-                    <Ionicons name="add-circle" size={24} color={COLORS.primary} />
-                    <Text style={styles.addButtonText}>{t('addCustomBank')}</Text>
-                </TouchableOpacity>
-
-                <View style={{ height: 40 }} />
             </ScrollView>
 
-            {/* Add Custom Bank Modal */}
-            <Modal
-                visible={showAddModal}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setShowAddModal(false)}
-            >
+            <Modal visible={showModal} animationType="slide" transparent>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{t('addCustomBank')}</Text>
-
-                        <TextInput
-                            style={styles.input}
-                            placeholder={t('customBankName')}
-                            value={customBankName}
-                            onChangeText={setCustomBankName}
-                        />
-
-                        <Text style={styles.colorLabel}>{t('customBankColor')}</Text>
-                        <View style={styles.colorPicker}>
-                            {PRESET_COLORS.map(color => (
-                                <TouchableOpacity
-                                    key={color}
-                                    style={[
-                                        styles.colorOption,
-                                        { backgroundColor: color },
-                                        customBankColor === color && styles.colorOptionSelected
-                                    ]}
-                                    onPress={() => setCustomBankColor(color)}
-                                >
-                                    {customBankColor === color && (
-                                        <Ionicons name="checkmark" size={20} color="#FFF" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.cancelButton]}
-                                onPress={() => setShowAddModal(false)}
-                            >
-                                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.saveButton]}
-                                onPress={handleAddCustomBank}
-                            >
-                                <Text style={styles.saveButtonText}>{t('save')}</Text>
+                        <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                            <Text style={styles.modalTitle}>{isEditing ? (isRTL ? 'تعديل البنك' : 'Edit Bank') : t('addCustomBank')}</Text>
+                            <TouchableOpacity onPress={closeModal}>
+                                <Ionicons name="close" size={24} color={COLORS.text} />
                             </TouchableOpacity>
                         </View>
+
+                        <ScrollView style={styles.modalForm}>
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'اسم البنك' : 'Bank Name'}</Text>
+                            <TextInput
+                                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                                value={customBankName}
+                                onChangeText={setCustomBankName}
+                                placeholder={isRTL ? 'مثال: مصرف الراجحي' : 'e.g. Al Rajhi Bank'}
+                            />
+
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'معرفات الرسائل' : 'SMS Sender IDs'}</Text>
+                            <TextInput
+                                style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                                value={smsSenderIds}
+                                onChangeText={setSmsSenderIds}
+                                placeholder="AlRajhi, SNB, ..."
+                            />
+                            <Text style={[styles.hint, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                {isRTL ? 'افصل بين المعرفات بفاصلة (,)' : 'Separate with commas (,)'}
+                            </Text>
+
+                            <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'لون البنك' : 'Bank Color'}</Text>
+                            <View style={[styles.colorGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                {PRESET_COLORS.map(color => (
+                                    <TouchableOpacity
+                                        key={color}
+                                        style={[styles.colorCircle, { backgroundColor: color }, customBankColor === color && styles.selectedColor]}
+                                        onPress={() => setCustomBankColor(color)}
+                                    >
+                                        {customBankColor === color && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveBank}>
+                                <Text style={styles.saveBtnText}>{t('save')}</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -200,184 +225,210 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: SPACING.m,
         paddingTop: 50,
-        backgroundColor: COLORS.surface,
-        ...SHADOWS.light,
+        paddingHorizontal: SPACING.m,
+        paddingBottom: SPACING.m,
+        backgroundColor: COLORS.white,
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
     },
     title: {
-        fontSize: 20,
-        fontFamily: FONTS.bold,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
-    content: {
-        flex: 1,
-        padding: SPACING.m,
-    },
-    section: {
-        marginBottom: SPACING.m,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    sectionSubtitle: {
-        fontSize: 14,
-        color: COLORS.textSecondary,
-    },
-    bankItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: COLORS.surface,
-        padding: SPACING.m,
-        borderRadius: 12,
-        marginBottom: SPACING.s,
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    bankItemSelected: {
-        borderColor: COLORS.success,
-        backgroundColor: '#F0FDF4',
-    },
-    bankLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    bankLogo: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+    addButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: SPACING.m,
     },
-    bankLogoText: {
-        color: '#FFF',
-        fontSize: 18,
+    content: {
+        padding: SPACING.m,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.textSecondary,
+        marginTop: SPACING.m,
+        marginBottom: SPACING.m,
+    },
+    emptyCard: {
+        alignItems: 'center',
+        padding: SPACING.xl,
+        gap: SPACING.m,
+    },
+    emptyText: {
+        color: COLORS.textMuted,
+        fontSize: 14,
+    },
+    emptyAddBtn: {
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    emptyAddText: {
+        color: COLORS.white,
         fontWeight: 'bold',
     },
-    bankInfo: {
-        flex: 1,
+    bankCard: {
+        padding: SPACING.m,
+        marginBottom: SPACING.m,
+    },
+    bankRow: {
+        alignItems: 'center',
+    },
+    bankIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     bankName: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: 2,
     },
-    bankType: {
+    bankInfo: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS.textMuted,
+        marginTop: 2,
     },
-    addButton: {
-        flexDirection: 'row',
+    actions: {
+        gap: 8,
+    },
+    actionBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: COLORS.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: COLORS.surface,
-        padding: SPACING.m,
-        borderRadius: 12,
-        marginTop: SPACING.m,
-        borderWidth: 2,
-        borderColor: COLORS.primary,
-        borderStyle: 'dashed',
     },
-    addButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
+    grid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: SPACING.m,
+    },
+    gridItem: {
+        width: '47%',
+        backgroundColor: COLORS.white,
+        borderRadius: 20,
+        padding: SPACING.m,
+        alignItems: 'center',
+        ...SHADOWS.soft,
+    },
+    suggestedIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: SPACING.s,
+    },
+    suggestedName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        textAlign: 'center',
+    },
+    suggestedAdd: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        backgroundColor: COLORS.primary + '10',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    suggestedAddText: {
+        fontSize: 12,
+        fontWeight: 'bold',
         color: COLORS.primary,
-        marginLeft: SPACING.s,
+        marginLeft: 4,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: COLORS.overlay,
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: COLORS.surface,
-        borderRadius: 16,
+        backgroundColor: COLORS.white,
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
         padding: SPACING.l,
-        width: '85%',
-        maxWidth: 400,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: SPACING.l,
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: SPACING.l,
-        textAlign: 'center',
+    },
+    modalForm: {
+        marginBottom: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: 8,
+        marginTop: SPACING.m,
     },
     input: {
-        backgroundColor: COLORS.background,
-        borderRadius: 8,
-        padding: SPACING.m,
+        backgroundColor: COLORS.surfaceVariant,
+        borderRadius: 12,
+        padding: 12,
         fontSize: 16,
-        marginBottom: SPACING.m,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    colorLabel: {
-        fontSize: 14,
-        fontWeight: '600',
         color: COLORS.text,
-        marginBottom: SPACING.s,
     },
-    colorPicker: {
-        flexDirection: 'row',
+    hint: {
+        fontSize: 11,
+        color: COLORS.textMuted,
+        marginTop: 4,
+    },
+    colorGrid: {
         flexWrap: 'wrap',
-        gap: SPACING.s,
-        marginBottom: SPACING.l,
+        gap: 12,
+        marginTop: 8,
     },
-    colorOption: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+    colorCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    colorOptionSelected: {
-        borderWidth: 3,
+    selectedColor: {
+        borderWidth: 2,
         borderColor: COLORS.text,
     },
-    modalButtons: {
-        flexDirection: 'row',
-        gap: SPACING.m,
-    },
-    modalButton: {
-        flex: 1,
-        padding: SPACING.m,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    cancelButton: {
-        backgroundColor: COLORS.background,
-    },
-    cancelButtonText: {
-        color: COLORS.text,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    saveButton: {
+    saveBtn: {
         backgroundColor: COLORS.primary,
+        borderRadius: 16,
+        padding: SPACING.m,
+        alignItems: 'center',
+        marginTop: SPACING.xl,
     },
-    saveButtonText: {
-        color: '#FFF',
+    saveBtnText: {
+        color: COLORS.white,
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
 });
 

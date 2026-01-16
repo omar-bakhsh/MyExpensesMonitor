@@ -41,7 +41,16 @@ export const TRANSLATIONS = {
         terms: 'الشروط والأحكام',
         logout: 'تسجيل خروج',
 
-        // Categories
+        // Categories (Lowercase IDs to match categories.js)
+        groceries: 'مقاضي وتموينات',
+        dining: 'مطاعم ومقاهي',
+        transport: 'نقل وبنزين',
+        shopping: 'تسوق',
+        utilities: 'فواتير وخدمات',
+        health: 'صحة',
+        entertainment: 'ترفيه',
+        travel: 'سفر وسياحة',
+        Education: 'تعليم',
         Travel: 'سفر وسياحة',
         Health: 'صحة',
         International: 'مشتريات دولية',
@@ -54,6 +63,7 @@ export const TRANSLATIONS = {
         Electronics: 'إلكترونيات',
         CarService: 'خدمة سيارات',
         Uncategorized: 'غير محدد',
+        uncategorized: 'غير محدد',
 
         // SMS Feature
         permissionRequired: 'إذن مطلوب',
@@ -227,6 +237,36 @@ export const TRANSLATIONS = {
         walletsAndBanks: 'المحافظ والبنوك',
         cardSpending: 'مصروفات البطاقات',
         edit: 'تعديل',
+        delete: 'حذف',
+        totalMerchants: 'إجمالي المتاجر',
+        noMerchants: 'لا توجد بيانات متاحة للمتاجر',
+        times: 'مرات',
+        frequentMerchants: 'المتاجر المتكررة',
+        notSet: 'غير محدد',
+        used: 'مستخدم',
+        enterLimit: 'أدخل الحد الأقصى',
+        generalBudget: 'الميزانية العامة',
+        monthlyTrend: 'اتجاه الإنفاق الشهري',
+        highestMonth: 'أعلى شهر',
+        lowestMonth: 'أدنى شهر',
+        monthlyBreakdown: 'تفصيل شهري',
+        noDataForChart: 'لا توجد بيانات كافية للرسم البياني',
+        avgTransaction: 'متوسط العملية',
+        totalTransactions: 'إجمالي العمليات',
+        avgMonthly: 'متوسط شهري',
+
+        // Months
+        Jan: 'يناير', Feb: 'فبراير', Mar: 'مارس', Apr: 'أبريل',
+        May: 'مايو', Jun: 'يونيو', Jul: 'يوليو', Aug: 'أغسطس',
+        Sep: 'سبتمبر', Oct: 'أكتوبر', Nov: 'نوفمبر', Dec: 'ديسمبر',
+
+        // Profile
+        profile: 'الملف الشخصي',
+        employeeName: 'اسم الموظف',
+        position: 'المنصب / المسمى الوظيفي',
+        companyName: 'اسم الشركة',
+        editProfile: 'تعديل الملف الشخصي',
+        personalInfo: 'المعلومات الشخصية',
     },
     en: {
         // General
@@ -455,5 +495,13 @@ export const TRANSLATIONS = {
         walletsAndBanks: 'Wallets & Banks',
         cardSpending: 'Card Spending',
         edit: 'Edit',
+
+        // Profile
+        profile: 'Profile',
+        employeeName: 'Employee Name',
+        position: 'Position / Job Title',
+        companyName: 'Company Name',
+        editProfile: 'Edit Profile',
+        personalInfo: 'Personal Information',
     }
 };

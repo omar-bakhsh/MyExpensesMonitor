@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
-import XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 import { Alert, Platform } from 'react-native';
 
 /**
@@ -159,14 +159,15 @@ export const restoreBackup = async (fileUri) => {
 /**
  * Export transactions to PDF file
  */
-export const exportToPDF = async (transactions, title = 'Monthly Report', currency = 'SAR', isRTL = false) => {
+export const exportToPDF = async (transactions, title = 'Monthly Report', currency = 'SAR', isRTL = false, userInfo = null) => {
     try {
         const html = `
             <html dir="${isRTL ? 'rtl' : 'ltr'}">
             <head>
                 <style>
                     body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 20px; color: #333; }
-                    h1 { color: #4F46E5; border-bottom: 2px solid #4F46E5; padding-bottom: 10px; }
+                    h1 { color: #4F46E5; border-bottom: 2px solid #4F46E5; padding-bottom: 10px; margin-bottom: 5px; }
+                    .user-info { margin-bottom: 20px; color: #64748B; font-size: 14px; }
                     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                     th { background-color: #F1F5F9; color: #475569; text-align: left; padding: 12px; border-bottom: 2px solid #E2E8F0; }
                     td { padding: 10px; border-bottom: 1px solid #E2E8F0; }
@@ -179,6 +180,12 @@ export const exportToPDF = async (transactions, title = 'Monthly Report', curren
             </head>
             <body>
                 <h1>${title}</h1>
+                ${userInfo ? `
+                <div class="user-info">
+                    <strong>${userInfo.name}</strong><br/>
+                    ${userInfo.position} @ ${userInfo.company}
+                </div>
+                ` : ''}
                 <table>
                     <thead>
                         <tr>
@@ -253,7 +260,7 @@ export const exportToExcel = async (transactions) => {
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
         await FileSystem.writeAsStringAsync(fileUri, wbout, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: 'base64',
         });
 
         if (await Sharing.isAvailableAsync()) {

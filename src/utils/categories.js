@@ -19,81 +19,67 @@ export const CATEGORIES = [
         nameEn: 'Uncategorized'
     },
     {
-        id: 'Education',
-        icon: 'school',
-        color: '#3B82F6',
-        nameAr: 'تعليم',
-        nameEn: 'Education'
-    },
-    {
-        id: 'Telecom',
-        icon: 'call',
-        color: '#8B5CF6',
-        nameAr: 'اتصالات',
-        nameEn: 'Telecom'
-    },
-    {
-        id: 'Bakery',
-        icon: 'cafe',
-        color: '#F59E0B',
-        nameAr: 'مخابز وحلويات',
-        nameEn: 'Bakery'
-    },
-    {
-        id: 'Beauty',
-        icon: 'sparkles',
-        color: '#EC4899',
-        nameAr: 'تجميل',
-        nameEn: 'Beauty'
-    },
-    {
-        id: 'Electronics',
-        icon: 'laptop',
-        color: '#6366F1',
-        nameAr: 'إلكترونيات',
-        nameEn: 'Electronics'
-    },
-    {
-        id: 'CarService',
-        icon: 'car',
-        color: '#EF4444',
-        nameAr: 'خدمة سيارات',
-        nameEn: 'Car Service'
-    },
-    {
-        id: 'Travel',
-        icon: 'airplane',
-        color: '#14B8A6',
-        nameAr: 'سفر وسياحة',
-        nameEn: 'Travel'
-    },
-    {
-        id: 'Health',
-        icon: 'medical',
+        id: 'groceries',
+        icon: 'basket',
         color: '#10B981',
+        nameAr: 'مقاضي وتموينات',
+        nameEn: 'Groceries'
+    },
+    {
+        id: 'dining',
+        icon: 'restaurant',
+        color: '#F59E0B',
+        nameAr: 'مطاعم ومقاهي',
+        nameEn: 'Dining'
+    },
+    {
+        id: 'transport',
+        icon: 'car',
+        color: '#3B82F6',
+        nameAr: 'نقل وبنزين',
+        nameEn: 'Transport'
+    },
+    {
+        id: 'shopping',
+        icon: 'cart',
+        color: '#EC4899',
+        nameAr: 'تسوق',
+        nameEn: 'Shopping'
+    },
+    {
+        id: 'utilities',
+        icon: 'document-text',
+        color: '#8B5CF6',
+        nameAr: 'فواتير وخدمات',
+        nameEn: 'Utilities'
+    },
+    {
+        id: 'health',
+        icon: 'medical',
+        color: '#EF4444',
         nameAr: 'صحة',
         nameEn: 'Health'
     },
     {
-        id: 'International',
-        icon: 'globe',
-        color: '#06B6D4',
-        nameAr: 'مشتريات دولية',
-        nameEn: 'International'
-    },
-    {
-        id: 'Entertainment',
+        id: 'entertainment',
         icon: 'game-controller',
         color: '#F97316',
         nameAr: 'ترفيه',
         nameEn: 'Entertainment'
     },
     {
-        id: 'Furniture',
-        icon: 'bed',
-        color: '#84CC16',
-        nameAr: 'أثاث',
-        nameEn: 'Furniture'
+        id: 'travel',
+        icon: 'airplane',
+        color: '#14B8A6',
+        nameAr: 'سفر وسياحة',
+        nameEn: 'Travel'
+    },
+    {
+        id: 'Education',
+        icon: 'school',
+        color: '#6366F1',
+        nameAr: 'تعليم',
+        nameEn: 'Education'
     }
 ];
 

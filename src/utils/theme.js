@@ -1,17 +1,23 @@
 export const COLORS = {
-    primary: '#4F46E5', // Indigo 600
+    primary: '#6366F1', // Indigo 500
+    primaryDark: '#4F46E5', // Indigo 600
     secondary: '#10B981', // Emerald 500
-    background: '#F9FAFB', // Gray 50
+    background: '#FDFDFF', // Very light lavender tinted white
     surface: '#FFFFFF',
-    text: '#1F2937', // Gray 800
-    textSecondary: '#6B7280', // Gray 500
+    surfaceVariant: '#F3F4F6', // Gray 100
+    text: '#0F172A', // Slate 900
+    textSecondary: '#64748B', // Slate 500
+    textMuted: '#94A3B8', // Slate 400
     error: '#EF4444',
     success: '#10B981',
     warning: '#F59E0B',
-    border: '#E5E7EB',
-    overlay: 'rgba(0,0,0,0.5)',
-    // Gradients or special accents can be added here
-    primaryGradient: ['#4F46E5', '#818CF8'], // For LinearGradient usage
+    border: '#E2E8F0', // Slate 200
+    overlay: 'rgba(15, 23, 42, 0.6)', 
+    white: '#FFFFFF',
+    black: '#000000',
+    primaryGradient: ['#6366F1', '#818CF8'],
+    successGradient: ['#10B981', '#34D399'],
+    errorGradient: ['#EF4444', '#F87171'],
 };
 
 export const SPACING = {
@@ -20,29 +26,47 @@ export const SPACING = {
     m: 16,
     l: 24,
     xl: 32,
+    xxl: 48,
 };
 
 export const FONTS = {
-    // Assuming default system fonts for now, but configured for easy swap
     regular: 'System',
     bold: 'System',
     medium: 'System',
-    // In a real app with custom fonts (Cairo/Tajawal), we'd map them here after loading
+    semiBold: 'System',
 };
 
 export const SHADOWS = {
-    light: {
+    none: {
+        shadowColor: 'transparent',
+        elevation: 0,
+    },
+    soft: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
         elevation: 2,
+    },
+    light: {
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
     },
     medium: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 6,
+    },
+    dark: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.2,
+        shadowRadius: 30,
+        elevation: 10,
     },
 };

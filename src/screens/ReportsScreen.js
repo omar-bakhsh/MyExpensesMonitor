@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { useExpensesStore, useTranslation } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
 import { formatCurrency } from '../utils/helpers';
-import { LineChart, BarChart } from 'react-native-chart-kit';
+import { LineChart } from 'react-native-chart-kit';
 import { exportToPDF, exportToExcel } from '../services/dataService';
 import { Alert } from 'react-native';
 
 const ReportsScreen = ({ navigation }) => {
-    const { t, isRTL } = useTranslation();
+    const { t, isRTL, language } = useTranslation();
     const rawTransactions = useExpensesStore(state => state.transactions) || [];
     const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
     const [selectedPeriod, setSelectedPeriod] = useState('year');
-    const screenWidth = Dimensions.get('window').width - (SPACING.m * 2);
+    const screenWidth = Dimensions.get('window').width;
 
     // Calculate monthly data for the past year
     const monthlyData = React.useMemo(() => {
@@ -25,7 +25,7 @@ const ReportsScreen = ({ navigation }) => {
         for (let i = 11; i >= 0; i--) {
             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            const monthName = date.toLocaleDateString('en', { month: 'short' });
+            const monthName = date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { month: 'short' });
 
             const monthTransactions = transactions.filter(tx => {
                 const txDate = new Date(tx.date);
@@ -44,7 +44,7 @@ const ReportsScreen = ({ navigation }) => {
         }
 
         return { months, data };
-    }, [transactions]);
+    }, [transactions, language]);
 
     // Calculate statistics
     const stats = React.useMemo(() => {
@@ -84,14 +84,17 @@ const ReportsScreen = ({ navigation }) => {
 
     // Chart configuration
     const chartConfig = {
-        backgroundColor: COLORS.surface,
-        backgroundGradientFrom: COLORS.surface,
-        backgroundGradientTo: COLORS.surface,
+        backgroundColor: COLORS.white,
+        backgroundGradientFrom: COLORS.white,
+        backgroundGradientTo: COLORS.white,
         decimalPlaces: 0,
-        color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`,
-        labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+        color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
         style: { borderRadius: 16 },
         propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.primary },
+        propsForLabels: {
+            fontSize: 10,
+        }
     };
 
     const chartData = {
@@ -101,27 +104,25 @@ const ReportsScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* Header with Back Button */}
-            <View style={styles.header}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left', flex: 1 }]}>
-                    {t('reports')}
-                </Text>
-                <View style={{ flexDirection: 'row', gap: SPACING.s }}>
+                <Text style={styles.title}>{t('reports')}</Text>
+                <View style={styles.headerActions}>
                     <TouchableOpacity onPress={handleExportPDF} style={styles.iconButton}>
-                        <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+                        <Ionicons name="document-text-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={handleExportExcel} style={styles.iconButton}>
-                        <Ionicons name="grid-outline" size={24} color={COLORS.primary} />
+                        <Ionicons name="grid-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Period Selector */}
-                <View style={styles.periodSelector}>
+                <View style={[styles.periodSelector, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     {['quarter', 'year'].map(period => (
                         <TouchableOpacity
                             key={period}
@@ -135,90 +136,91 @@ const ReportsScreen = ({ navigation }) => {
                     ))}
                 </View>
 
-                {/* Summary Stats */}
-                <View style={styles.statsGrid}>
-                    <Card style={styles.statCard}>
-                        <Ionicons name="cash-outline" size={24} color={COLORS.primary} />
-                        <Text style={styles.statValue}>{formatCurrency(stats.totalSpent)}</Text>
-                        <Text style={styles.statLabel}>{t('totalSpent')}</Text>
-                    </Card>
-                    <Card style={styles.statCard}>
-                        <Ionicons name="calendar-outline" size={24} color="#10B981" />
-                        <Text style={styles.statValue}>{formatCurrency(stats.avgMonthly)}</Text>
-                        <Text style={styles.statLabel}>{t('avgMonthly')}</Text>
-                    </Card>
-                    <Card style={styles.statCard}>
-                        <Ionicons name="receipt-outline" size={24} color="#F59E0B" />
-                        <Text style={styles.statValue}>{stats.totalTransactions}</Text>
-                        <Text style={styles.statLabel}>{t('totalTransactions')}</Text>
-                    </Card>
-                    <Card style={styles.statCard}>
-                        <Ionicons name="trending-up" size={24} color="#EF4444" />
-                        <Text style={styles.statValue}>{formatCurrency(stats.avgTransaction)}</Text>
-                        <Text style={styles.statLabel}>{t('avgTransaction')}</Text>
-                    </Card>
-                </View>
+                {/* Main Summary Stats */}
+                <Card style={styles.mainStatsCard} variant="elevated">
+                    <Text style={styles.mainStatsLabel}>{t('totalSpent')}</Text>
+                    <Text style={styles.mainStatsValue}>{formatCurrency(stats.totalSpent)}</Text>
+                    <View style={styles.mainStatsDivider} />
+                    <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>{t('avgMonthly')}</Text>
+                            <Text style={styles.statValue}>{formatCurrency(stats.avgMonthly)}</Text>
+                        </View>
+                        <View style={styles.verticalDivider} />
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>{t('totalTransactions')}</Text>
+                            <Text style={styles.statValue}>{stats.totalTransactions}</Text>
+                        </View>
+                    </View>
+                </Card>
 
                 {/* Monthly Trend Chart */}
-                <Card style={styles.chartCard}>
-                    <Text style={[styles.chartTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+                <Card style={styles.chartCard} variant="elevated">
+                    <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
                         {t('monthlyTrend')}
                     </Text>
                     {transactions.length > 0 ? (
                         <LineChart
                             data={chartData}
-                            width={screenWidth - SPACING.m * 2}
-                            height={200}
+                            width={screenWidth - SPACING.m * 4}
+                            height={220}
                             chartConfig={chartConfig}
                             bezier
                             style={styles.chart}
+                            withInnerLines={false}
+                            withOuterLines={false}
                         />
                     ) : (
                         <View style={styles.noDataChart}>
-                            <Ionicons name="analytics-outline" size={48} color={COLORS.textSecondary} />
+                            <Ionicons name="analytics-outline" size={48} color={COLORS.textMuted} />
                             <Text style={styles.noDataText}>{t('noDataForChart')}</Text>
                         </View>
                     )}
                 </Card>
 
-                {/* Highest/Lowest Months */}
+                {/* Highlights */}
                 <View style={[styles.highlightRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Card style={[styles.highlightCard, { backgroundColor: '#FEE2E2' }]}>
-                        <Ionicons name="trending-up" size={24} color="#EF4444" />
-                        <Text style={[styles.highlightLabel, { color: '#EF4444' }]}>{t('highestMonth')}</Text>
+                    <Card style={[styles.highlightCard, { borderLeftColor: COLORS.error, borderLeftWidth: 4 }]} variant="outlined">
+                        <Ionicons name="trending-up" size={24} color={COLORS.error} />
+                        <Text style={styles.highlightLabel}>{t('highestMonth')}</Text>
                         <Text style={styles.highlightMonth}>{stats.highestMonth.month}</Text>
-                        <Text style={[styles.highlightValue, { color: '#EF4444' }]}>
+                        <Text style={[styles.highlightValue, { color: COLORS.error }]}>
                             {formatCurrency(stats.highestMonth.total)}
                         </Text>
                     </Card>
-                    <Card style={[styles.highlightCard, { backgroundColor: '#D1FAE5' }]}>
-                        <Ionicons name="trending-down" size={24} color="#10B981" />
-                        <Text style={[styles.highlightLabel, { color: '#10B981' }]}>{t('lowestMonth')}</Text>
+                    <Card style={[styles.highlightCard, { borderLeftColor: COLORS.success, borderLeftWidth: 4 }]} variant="outlined">
+                        <Ionicons name="trending-down" size={24} color={COLORS.success} />
+                        <Text style={styles.highlightLabel}>{t('lowestMonth')}</Text>
                         <Text style={styles.highlightMonth}>{stats.lowestMonth.month}</Text>
-                        <Text style={[styles.highlightValue, { color: '#10B981' }]}>
+                        <Text style={[styles.highlightValue, { color: COLORS.success }]}>
                             {formatCurrency(stats.lowestMonth.total)}
                         </Text>
                     </Card>
                 </View>
 
-                {/* Monthly Breakdown */}
-                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {/* Monthly Breakdown List */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left', marginTop: SPACING.l }]}>
                     {t('monthlyBreakdown')}
                 </Text>
                 {monthlyData.data.slice().reverse().map((month, index) => (
-                    <Card key={month.monthKey} style={styles.monthCard}>
-                        <View style={[styles.monthRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                            <View style={styles.monthInfo}>
-                                <Text style={[styles.monthName, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                    {month.month}
-                                </Text>
-                                <Text style={[styles.monthCount, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                    {month.count} {t('transactions')}
-                                </Text>
+                    month.total > 0 && (
+                        <Card key={month.monthKey} style={styles.monthCard} variant="outlined">
+                            <View style={[styles.monthRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                <View style={[styles.monthAvatar, { backgroundColor: COLORS.primary + '10' }]}>
+                                    <Text style={styles.monthAvatarText}>{month.month.substring(0, 3)}</Text>
+                                </View>
+                                <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                                    <Text style={[styles.monthName, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                        {month.month}
+                                    </Text>
+                                    <Text style={[styles.monthCount, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                        {month.count} {t('transactions')}
+                                    </Text>
+                                </View>
+                                <Text style={styles.monthTotal}>{formatCurrency(month.total)}</Text>
                             </View>
-                            <Text style={styles.monthTotal}>{formatCurrency(month.total)}</Text>
-                        </View>
-                    </Card>
+                        </Card>
+                    )
                 ))}
             </ScrollView>
         </View>
@@ -231,53 +233,59 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 50,
         paddingHorizontal: SPACING.m,
         paddingBottom: SPACING.m,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        backgroundColor: COLORS.white,
+        ...SHADOWS.soft,
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: SPACING.s,
+        backgroundColor: COLORS.surfaceVariant,
+        borderRadius: 22,
     },
     title: {
-        fontSize: 20,
-        fontFamily: FONTS.bold,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
+    headerActions: {
+        flexDirection: 'row',
+        gap: SPACING.s,
+    },
     iconButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: COLORS.primary + '10',
-        borderRadius: 20,
+        borderRadius: 12,
     },
     content: {
         padding: SPACING.m,
-        paddingBottom: SPACING.xl,
     },
     periodSelector: {
-        flexDirection: 'row',
         gap: SPACING.s,
         marginBottom: SPACING.l,
     },
     periodBtn: {
         paddingHorizontal: SPACING.m,
-        paddingVertical: SPACING.s,
-        borderRadius: 20,
-        backgroundColor: '#F3F4F6',
+        paddingVertical: 10,
+        borderRadius: 14,
+        backgroundColor: COLORS.white,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        minWidth: 80,
+        alignItems: 'center',
     },
     periodBtnActive: {
         backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
     },
     periodText: {
         fontSize: 14,
@@ -285,43 +293,68 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
     },
     periodTextActive: {
-        color: COLORS.surface,
+        color: COLORS.white,
+    },
+    mainStatsCard: {
+        backgroundColor: COLORS.primary,
+        padding: SPACING.l,
+        alignItems: 'center',
+    },
+    mainStatsLabel: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 14,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    mainStatsValue: {
+        color: COLORS.white,
+        fontSize: 32,
+        fontWeight: 'bold',
+        marginVertical: SPACING.s,
+    },
+    mainStatsDivider: {
+        height: 1,
+        width: '100%',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        marginVertical: SPACING.m,
     },
     statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: SPACING.s,
-        marginBottom: SPACING.l,
+        width: '100%',
+        justifyContent: 'space-around',
     },
-    statCard: {
-        width: '48%',
+    statItem: {
         alignItems: 'center',
-        padding: SPACING.m,
+        flex: 1,
     },
-    statValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.text,
-        marginTop: SPACING.s,
+    verticalDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: 'rgba(255,255,255,0.1)',
     },
     statLabel: {
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
-        color: COLORS.textSecondary,
-        marginTop: 4,
-        textAlign: 'center',
+        marginBottom: 4,
+    },
+    statValue: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     chartCard: {
-        marginBottom: SPACING.l,
+        marginTop: SPACING.m,
+        paddingHorizontal: SPACING.m,
     },
-    chartTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: SPACING.m,
     },
     chart: {
         borderRadius: 16,
-        marginLeft: -SPACING.m,
+        marginVertical: 8,
+        marginLeft: -16,
     },
     noDataChart: {
         height: 200,
@@ -330,22 +363,22 @@ const styles = StyleSheet.create({
     },
     noDataText: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: COLORS.textMuted,
         marginTop: SPACING.s,
     },
     highlightRow: {
-        flexDirection: 'row',
-        gap: SPACING.s,
-        marginBottom: SPACING.l,
+        gap: SPACING.m,
+        marginTop: SPACING.m,
     },
     highlightCard: {
         flex: 1,
-        alignItems: 'center',
         padding: SPACING.m,
+        alignItems: 'flex-start',
     },
     highlightLabel: {
         fontSize: 12,
         fontWeight: '600',
+        color: COLORS.textSecondary,
         marginTop: SPACING.s,
     },
     highlightMonth: {
@@ -356,29 +389,31 @@ const styles = StyleSheet.create({
     },
     highlightValue: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: 'bold',
         marginTop: 4,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: COLORS.text,
-        marginBottom: SPACING.m,
     },
     monthCard: {
         marginBottom: SPACING.s,
+        padding: SPACING.m,
+    },
+    monthAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    monthAvatarText: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        fontSize: 12,
     },
     monthRow: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    monthInfo: {
-        flex: 1,
     },
     monthName: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
     },
     monthCount: {
@@ -389,7 +424,7 @@ const styles = StyleSheet.create({
     monthTotal: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: COLORS.primary,
+        color: COLORS.text,
     },
 });
 

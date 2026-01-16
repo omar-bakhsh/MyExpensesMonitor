@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { useExpensesStore, useTranslation } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../components/Card';
@@ -15,7 +15,6 @@ const MerchantStatsScreen = ({ navigation }) => {
     // Calculate merchant statistics using service
     const merchantStats = React.useMemo(() => {
         const stats = calculateMerchantStats(transactions);
-        // Map service output to component state structure if needed
         return (stats || []).map(s => ({
             ...s,
             totalAmount: s.total || 0,
@@ -27,111 +26,56 @@ const MerchantStatsScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* Header with Back Button */}
-            <View style={styles.header}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+                    <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left', flex: 1 }]}>
-                    {t('merchantStats')}
-                </Text>
+                <Text style={styles.title}>{t('merchantStats')}</Text>
+                <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Summary Card */}
-                <Card style={styles.summaryCard}>
-                    <View style={[styles.summaryRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>{merchantStats.length}</Text>
-                            <Text style={styles.summaryLabel}>{t('totalMerchants')}</Text>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>{transactions.length}</Text>
-                            <Text style={styles.summaryLabel}>{t('totalTransactions')}</Text>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>{formatCurrency(totalSpending)}</Text>
-                            <Text style={styles.summaryLabel}>{t('totalSpent')}</Text>
+                <Card style={styles.summaryCard} variant="elevated">
+                    <Text style={[styles.summaryLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t('totalSpentAtMerchants')}</Text>
+                    <Text style={[styles.summaryAmount, { textAlign: isRTL ? 'right' : 'left' }]}>{formatCurrency(totalSpending)}</Text>
+                    <View style={[styles.summaryInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={styles.summaryBadge}>
+                            <Ionicons name="storefront" size={14} color={COLORS.primary} />
+                            <Text style={styles.badgeText}>{merchantStats.length} {t('merchants')}</Text>
                         </View>
                     </View>
                 </Card>
 
-                {/* Top Merchants */}
-                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t('topMerchants')}
-                </Text>
-
+                {/* Merchant List */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('mostVisited')}</Text>
                 {merchantStats.length === 0 ? (
                     <Card style={styles.emptyState}>
-                        <Ionicons name="storefront-outline" size={48} color={COLORS.textSecondary} />
-                        <Text style={styles.emptyText}>{t('noMerchants')}</Text>
+                        <Text style={styles.emptyText}>{t('noTransactions')}</Text>
                     </Card>
                 ) : (
-                    merchantStats.slice(0, 10).map((merchant, index) => {
-                        const percentage = ((merchant.totalAmount / totalSpending) * 100).toFixed(1);
-
-                        return (
-                            <Card key={merchant.name} style={styles.merchantCard}>
-                                <View style={[styles.merchantHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                    <View style={styles.rankBadge}>
-                                        <Text style={styles.rankText}>#{index + 1}</Text>
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.merchantName, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                            {merchant.name}
-                                        </Text>
-                                        <Text style={[styles.merchantInfo, { textAlign: isRTL ? 'right' : 'left' }]}>
-                                            {merchant.count} {t('transactions')} • {t(merchant.category)}
-                                        </Text>
-                                    </View>
-                                    <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
-                                        <Text style={styles.merchantAmount}>
-                                            {formatCurrency(merchant.totalAmount)}
-                                        </Text>
-                                        <Text style={styles.merchantPercentage}>{percentage}%</Text>
+                    merchantStats.map((merchant, index) => (
+                        <Card key={index} style={styles.merchantCard} variant="outlined">
+                            <View style={[styles.merchantRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                                <View style={styles.merchantIcon}>
+                                    <Ionicons name="cart-outline" size={24} color={COLORS.primary} />
+                                </View>
+                                <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                                    <Text style={[styles.merchantName, { textAlign: isRTL ? 'right' : 'left' }]}>{merchant.name}</Text>
+                                    <Text style={[styles.merchantCount, { textAlign: isRTL ? 'right' : 'left' }]}>
+                                        {merchant.count} {t('transactions')}
+                                    </Text>
+                                </View>
+                                <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+                                    <Text style={styles.merchantAmount}>{formatCurrency(merchant.totalAmount)}</Text>
+                                    <View style={styles.progressBarBg}>
+                                        <View style={[styles.progressBar, { width: `${(merchant.totalAmount / totalSpending * 100)}%` }]} />
                                     </View>
                                 </View>
-
-                                {/* Progress Bar */}
-                                <View style={styles.progressContainer}>
-                                    <View
-                                        style={[
-                                            styles.progressBar,
-                                            { width: `${percentage}%` }
-                                        ]}
-                                    />
-                                </View>
-                            </Card>
-                        );
-                    })
-                )}
-
-                {/* Frequent Merchants */}
-                {merchantStats.length > 0 && (
-                    <>
-                        <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left', marginTop: SPACING.l }]}>
-                            {t('frequentMerchants')}
-                        </Text>
-                        {[...merchantStats]
-                            .sort((a, b) => b.count - a.count)
-                            .slice(0, 5)
-                            .map((merchant, index) => (
-                                <Card key={`freq-${merchant.name}`} style={styles.frequentCard}>
-                                    <View style={[styles.frequentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                                        <Ionicons name="repeat" size={20} color={COLORS.primary} />
-                                        <Text style={[styles.frequentName, { flex: 1, textAlign: isRTL ? 'right' : 'left' }]}>
-                                            {merchant.name}
-                                        </Text>
-                                        <Text style={styles.frequentCount}>
-                                            {merchant.count} {t('times')}
-                                        </Text>
-                                    </View>
-                                </Card>
-                            ))
-                        }
-                    </>
+                            </View>
+                        </Card>
+                    ))
                 )}
             </ScrollView>
         </View>
@@ -144,102 +88,88 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 50,
         paddingHorizontal: SPACING.m,
         paddingBottom: SPACING.m,
-        backgroundColor: COLORS.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        backgroundColor: COLORS.white,
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: COLORS.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: SPACING.s,
     },
     title: {
-        fontSize: 20,
-        fontFamily: FONTS.bold,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
     content: {
         padding: SPACING.m,
-        paddingBottom: SPACING.xl,
     },
     summaryCard: {
         backgroundColor: COLORS.primary,
-        marginBottom: SPACING.l,
-    },
-    summaryRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-    },
-    summaryItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    summaryValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.surface,
+        padding: SPACING.l,
+        marginBottom: SPACING.xl,
     },
     summaryLabel: {
-        fontSize: 12,
+        fontSize: 14,
         color: 'rgba(255,255,255,0.8)',
-        marginTop: 4,
     },
-    divider: {
-        width: 1,
-        height: 40,
-        backgroundColor: 'rgba(255,255,255,0.3)',
+    summaryAmount: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: COLORS.white,
+        marginVertical: SPACING.s,
+    },
+    summaryInfo: {
+        marginTop: SPACING.m,
+    },
+    summaryBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    badgeText: {
+        fontSize: 12,
+        color: COLORS.white,
+        fontWeight: 'bold',
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: SPACING.m,
     },
-    emptyState: {
-        alignItems: 'center',
-        padding: SPACING.xl,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: COLORS.textSecondary,
-        marginTop: SPACING.m,
-    },
     merchantCard: {
+        padding: SPACING.m,
         marginBottom: SPACING.s,
     },
-    merchantHeader: {
-        flexDirection: 'row',
+    merchantRow: {
         alignItems: 'center',
-        gap: SPACING.m,
     },
-    rankBadge: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: COLORS.primary + '20',
+    merchantIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: COLORS.primary + '10',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    rankText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: COLORS.primary,
-    },
     merchantName: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
     },
-    merchantInfo: {
+    merchantCount: {
         fontSize: 12,
         color: COLORS.textSecondary,
         marginTop: 2,
@@ -248,40 +178,26 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: COLORS.text,
+        marginBottom: 4,
     },
-    merchantPercentage: {
-        fontSize: 12,
-        color: COLORS.primary,
-        fontWeight: '600',
-    },
-    progressContainer: {
+    progressBarBg: {
+        width: 80,
         height: 4,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: COLORS.surfaceVariant,
         borderRadius: 2,
-        marginTop: SPACING.m,
         overflow: 'hidden',
     },
     progressBar: {
         height: '100%',
         backgroundColor: COLORS.primary,
-        borderRadius: 2,
     },
-    frequentCard: {
-        marginBottom: SPACING.s,
-    },
-    frequentRow: {
-        flexDirection: 'row',
+    emptyState: {
         alignItems: 'center',
-        gap: SPACING.m,
+        padding: SPACING.xl,
     },
-    frequentName: {
-        fontSize: 16,
-        color: COLORS.text,
-    },
-    frequentCount: {
+    emptyText: {
+        color: COLORS.textSecondary,
         fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.primary,
     },
 });
 

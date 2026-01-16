@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, StatusBar } from 'react-native';
 import { useExpensesStore, useTranslation } from '../store';
-import { COLORS, FONTS, SPACING } from '../utils/theme';
+import { COLORS, FONTS, SPACING, SHADOWS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import CATEGORIES from '../utils/categories';
 
@@ -11,7 +11,7 @@ const AddTransactionScreen = ({ navigation }) => {
     const [category, setCategory] = useState('Uncategorized');
 
     const addTransaction = useExpensesStore((state) => state.addTransaction);
-    const { t, isRTL } = useTranslation();
+    const { t, isRTL, language } = useTranslation();
 
     const handleSave = () => {
         if (!amount || !merchant) return;
@@ -30,64 +30,85 @@ const AddTransactionScreen = ({ navigation }) => {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>{t('addTransactionTitle')}</Text>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
                     <Ionicons name="close" size={24} color={COLORS.text} />
                 </TouchableOpacity>
+                <Text style={styles.title}>{t('addTransactionTitle')}</Text>
+                <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.form}>
-                <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('amount')}</Text>
-                    <TextInput
-                        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        value={amount}
-                        onChangeText={setAmount}
-                    />
+            <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
+                <View style={styles.amountContainer}>
+                    <Text style={styles.amountLabel}>{t('amount')}</Text>
+                    <View style={[styles.amountInputRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Text style={styles.currency}>{t('sar')}</Text>
+                        <TextInput
+                            style={styles.amountInput}
+                            placeholder="0.00"
+                            placeholderTextColor={COLORS.textMuted}
+                            keyboardType="numeric"
+                            value={amount}
+                            onChangeText={setAmount}
+                            autoFocus
+                        />
+                    </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('merchant')}</Text>
-                    <TextInput
-                        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                        placeholder={t('merchant')}
-                        value={merchant}
-                        onChangeText={setMerchant}
-                    />
+                <View style={styles.inputCard}>
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('merchant')}</Text>
+                        <TextInput
+                            style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                            placeholder={isRTL ? 'أين أنفقت أموالك؟' : 'Where did you spend?'}
+                            placeholderTextColor={COLORS.textMuted}
+                            value={merchant}
+                            onChangeText={setMerchant}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { marginVertical: SPACING.l }]} />
+
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left', marginBottom: SPACING.m }]}>{t('category')}</Text>
+                        <View style={styles.categoryGrid}>
+                            {CATEGORIES.map((cat) => {
+                                const isSelected = category === cat.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={cat.id}
+                                        style={[
+                                            styles.categoryItem,
+                                            isSelected && { backgroundColor: cat.color + '15', borderColor: cat.color }
+                                        ]}
+                                        onPress={() => setCategory(cat.id)}
+                                    >
+                                        <View style={[styles.catIconWrapper, { backgroundColor: isSelected ? cat.color : COLORS.surfaceVariant }]}>
+                                            <Ionicons
+                                                name={cat.icon}
+                                                size={18}
+                                                color={isSelected ? COLORS.white : COLORS.textSecondary}
+                                            />
+                                        </View>
+                                        <Text style={[
+                                            styles.categoryName,
+                                            isSelected && { color: cat.color, fontWeight: '700' }
+                                        ]}>
+                                            {isRTL ? cat.nameAr : cat.nameEn}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t('category')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.categoryContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        {CATEGORIES.map((cat) => (
-                            <TouchableOpacity
-                                key={cat.id}
-                                style={[
-                                    styles.categoryChip,
-                                    category === cat.id && { backgroundColor: cat.color }
-                                ]}
-                                onPress={() => setCategory(cat.id)}
-                            >
-                                <Ionicons
-                                    name={cat.icon}
-                                    size={18}
-                                    color={category === cat.id ? COLORS.surface : cat.color}
-                                />
-                                <Text style={[
-                                    styles.categoryText,
-                                    category === cat.id && styles.categoryTextActive
-                                ]}>
-                                    {t(cat.id)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                <TouchableOpacity 
+                    style={[styles.saveBtn, (!amount || !merchant) && styles.saveBtnDisabled]} 
+                    onPress={handleSave}
+                    disabled={!amount || !merchant}
+                >
                     <Text style={styles.saveBtnText}>{t('save')}</Text>
                 </TouchableOpacity>
             </ScrollView>
@@ -99,66 +120,121 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: COLORS.background,
-        padding: SPACING.m,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: SPACING.xl,
+        paddingTop: 50,
+        paddingHorizontal: SPACING.m,
+        paddingBottom: SPACING.m,
+        backgroundColor: COLORS.white,
+    },
+    closeBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.surfaceVariant,
     },
     title: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
     },
     form: {
-        gap: SPACING.l,
+        padding: SPACING.m,
+    },
+    amountContainer: {
+        alignItems: 'center',
+        marginVertical: SPACING.xl,
+    },
+    amountLabel: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginBottom: SPACING.s,
+    },
+    amountInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.s,
+    },
+    currency: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: COLORS.textSecondary,
+    },
+    amountInput: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        minWidth: 100,
+    },
+    inputCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: SPACING.l,
+        ...SHADOWS.soft,
     },
     inputGroup: {
         gap: SPACING.s,
     },
     label: {
-        fontSize: 14,
+        fontSize: 13,
         color: COLORS.textSecondary,
-        fontWeight: '600',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     input: {
-        backgroundColor: COLORS.surface,
-        padding: SPACING.m,
-        borderRadius: 12,
-        fontSize: 16,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-    },
-    categoryContainer: {
-        gap: SPACING.s,
+        fontSize: 18,
+        color: COLORS.text,
         paddingVertical: SPACING.s,
     },
-    categoryChip: {
+    divider: {
+        height: 1,
+        backgroundColor: COLORS.border,
+    },
+    categoryGrid: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    categoryItem: {
+        width: '30%',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: SPACING.m,
-        paddingVertical: SPACING.s,
-        borderRadius: 20,
-        backgroundColor: '#F3F4F6',
-        marginRight: SPACING.s,
+        padding: SPACING.s,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+        backgroundColor: COLORS.white,
     },
-    categoryText: {
-        fontSize: 14,
+    catIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    categoryName: {
+        fontSize: 11,
         color: COLORS.textSecondary,
-    },
-    categoryTextActive: {
-        color: COLORS.surface,
-        fontWeight: '600',
+        textAlign: 'center',
     },
     saveBtn: {
         backgroundColor: COLORS.primary,
         padding: SPACING.m,
-        borderRadius: 12,
+        borderRadius: 16,
         alignItems: 'center',
-        marginTop: SPACING.l,
+        marginTop: SPACING.xl,
+        ...SHADOWS.light,
+    },
+    saveBtnDisabled: {
+        backgroundColor: COLORS.textMuted,
+        shadowOpacity: 0,
+        elevation: 0,
     },
     saveBtnText: {
         color: COLORS.surface,

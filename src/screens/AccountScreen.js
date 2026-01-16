@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
-import { COLORS, SPACING, FONTS } from '../utils/theme';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, StatusBar, Alert } from 'react-native';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useUserStore, useExpensesStore, useTranslation } from '../store';
 import { useNavigation } from '@react-navigation/native';
 import { scheduleDailyReminder, cancelAllNotifications } from '../services/notificationService';
 import { exportTransactions, exportToPDF, exportToExcel, createBackup } from '../services/dataService';
-import { Alert } from 'react-native';
+import Card from '../components/Card';
 
 const AccountScreen = () => {
-    const { t, language } = useTranslation();
-    const { settings, updateSettings } = useUserStore();
+    const { t, language, isRTL } = useTranslation();
+    const { settings, updateSettings, user } = useUserStore();
     const { budget, transactions, incomeSources } = useExpensesStore();
     const navigation = useNavigation();
 
@@ -20,7 +20,7 @@ const AccountScreen = () => {
     };
 
     const handleExportPDF = async () => {
-        const result = await exportToPDF(transactions, t('annualSummary'), t('sar'), language === 'ar');
+        const result = await exportToPDF(transactions, t('annualSummary'), t('sar'), language === 'ar', user);
         if (result.success) Alert.alert(t('success'), result.message);
     };
 
@@ -34,102 +34,132 @@ const AccountScreen = () => {
         updateSettings({ language: newLang });
     };
 
-    const toggleNotifications = async () => {
-        const newValue = !settings.pushNotificationsEnabled;
-        updateSettings({ pushNotificationsEnabled: newValue });
-
-        if (newValue) {
-            await scheduleDailyReminder();
-        } else {
-            await cancelAllNotifications();
-        }
-    };
-
-
-    const renderItem = (icon, label, onPress, rightElement = null, subLabel = null) => (
-        <TouchableOpacity style={styles.item} onPress={onPress} disabled={!onPress}>
-            <View style={styles.itemLeft}>
-                <Ionicons name={icon} size={20} color={COLORS.primary} />
-                <View>
-                    <Text style={styles.itemText}>{label}</Text>
-                    {subLabel && <Text style={styles.subLabel}>{subLabel}</Text>}
-                </View>
+    const SettingItem = ({ icon, label, onPress, value, type = 'chevron', color = COLORS.primary }) => (
+        <TouchableOpacity style={[styles.item, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} onPress={onPress}>
+            <View style={[styles.itemIcon, { backgroundColor: color + '15' }]}>
+                <Ionicons name={icon} size={20} color={color} />
             </View>
-            {rightElement || <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />}
+            <Text style={[styles.itemText, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
+            {type === 'chevron' && <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={20} color={COLORS.textMuted} />}
+            {type === 'switch' && (
+                <Switch
+                    value={value}
+                    onValueChange={onPress}
+                    trackColor={{ false: COLORS.surfaceVariant, true: color + '40' }}
+                    thumbColor={value ? color : COLORS.white}
+                />
+            )}
+            {type === 'text' && <Text style={styles.itemValue}>{value}</Text>}
         </TouchableOpacity>
     );
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <Text style={styles.title}>{t('account')}</Text>
-
-            {/* Subscriptions */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('subscriptions')}</Text>
-                {renderItem('card', t('manageSubscription'))}
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" />
+            <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={styles.headerTitle}>{t('settings')}</Text>
             </View>
 
-            {/* Settings */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('settingsTitle')}</Text>
-                {renderItem('business', t('bankConnections'), () => navigation.navigate('BankSelection'))}
-                {renderItem('card', t('cardManagement'), () => navigation.navigate('CardCustomization'))}
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {/* Profile Summary */}
+                <Card style={styles.profileCard} variant="elevated">
+                    <View style={[styles.profileInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={styles.avatar}>
+                            <Ionicons name="person" size={32} color={COLORS.white} />
+                        </View>
+                        <View style={{ flex: 1, marginHorizontal: SPACING.m }}>
+                            <Text style={[styles.userName, { textAlign: isRTL ? 'right' : 'left' }]}>{user?.name}</Text>
+                            <Text style={[styles.userEmail, { textAlign: isRTL ? 'right' : 'left' }]}>{user?.position} @ {user?.company}</Text>
+                        </View>
+                    </View>
+                </Card>
 
-                {/* Income & Budget Management */}
-                {renderItem(
-                    'wallet',
-                    t('editIncome'),
-                    () => navigation.navigate('Income'),
-                    null,
-                    `${t('totalIncome')}: ${budget} ${t('sar')}`
-                )}
-
-                {/* Categories Budget */}
-                {renderItem('grid', t('categoryBudgets'), () => navigation.navigate('CategoryBudget'))}
-
-                {/* Notification Toggle */}
-                {renderItem('notifications', t('notifications'), toggleNotifications, (
-                    <Switch
-                        value={settings.pushNotificationsEnabled}
-                        onValueChange={toggleNotifications}
-                        trackColor={{ false: '#767577', true: COLORS.primary }}
-                        thumbColor={'#f4f3f4'}
+                {/* General Settings */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('general')}</Text>
+                <Card style={styles.settingsGroup} variant="outlined">
+                    <SettingItem 
+                        icon="person-circle" 
+                        label={t('profile')} 
+                        onPress={() => navigation.navigate('Profile')} 
                     />
-                ))}
+                    <SettingItem 
+                        icon="language" 
+                        label={t('language')} 
+                        onPress={toggleLanguage} 
+                        type="text" 
+                        value={language === 'ar' ? 'العربية' : 'English'} 
+                    />
+                    <SettingItem 
+                        icon="notifications" 
+                        label={t('notifications')} 
+                        onPress={() => updateSettings({ pushNotificationsEnabled: !settings.pushNotificationsEnabled })} 
+                        type="switch" 
+                        value={settings.pushNotificationsEnabled} 
+                    />
+                    <SettingItem 
+                        icon="shield-checkmark" 
+                        label={t('security')} 
+                        onPress={() => navigation.navigate('Security')} 
+                    />
+                </Card>
 
-                {/* Language Toggle */}
-                <TouchableOpacity style={styles.item} onPress={toggleLanguage}>
-                    <View style={styles.itemLeft}>
-                        <Ionicons name="language" size={20} color={COLORS.primary} />
-                        <Text style={styles.itemText}>{t('language')}</Text>
-                    </View>
-                    <View style={styles.languageToggle}>
-                        <Text style={styles.languageText}>{language === 'ar' ? 'العربية' : 'English'}</Text>
-                        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-                    </View>
-                </TouchableOpacity>
-            </View>
+                {/* Wallet & Banks */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('wallets')}</Text>
+                <Card style={styles.settingsGroup} variant="outlined">
+                    <SettingItem 
+                        icon="business" 
+                        label={t('banks')} 
+                        onPress={() => navigation.navigate('BankSelection')} 
+                    />
+                    <SettingItem 
+                        icon="card" 
+                        label={t('cards')} 
+                        onPress={() => navigation.navigate('CardCustomization')} 
+                    />
+                </Card>
 
-            {/* Data Management */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('backup')}</Text>
-                {renderItem('cloud-upload-outline', t('createBackup'), handleBackup)}
-                {renderItem('document-text-outline', t('exportPDF'), handleExportPDF)}
-                {renderItem('grid-outline', t('exportExcel'), handleExportExcel)}
-            </View>
+                {/* Data Management */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('data')}</Text>
+                <Card style={styles.settingsGroup} variant="outlined">
+                    <SettingItem 
+                        icon="cloud-upload" 
+                        label={t('backup')} 
+                        onPress={handleBackup} 
+                        color={COLORS.secondary}
+                    />
+                    <SettingItem 
+                        icon="document-text" 
+                        label={t('exportPDF')} 
+                        onPress={handleExportPDF} 
+                        color="#EF4444"
+                    />
+                    <SettingItem 
+                        icon="grid" 
+                        label={t('exportExcel')} 
+                        onPress={handleExportExcel} 
+                        color="#10B981"
+                    />
+                </Card>
 
-            {/* Support */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Support</Text>
-                {renderItem('help-circle', t('helpCenter'), () => navigation.navigate('Help'))}
-                {renderItem('document-text', t('terms'), () => navigation.navigate('Terms'))}
-            </View>
-
-            {/* Logout */}
-            <TouchableOpacity style={styles.logoutBtn}>
-                <Text style={styles.logoutText}>{t('logout')}</Text>
-            </TouchableOpacity>
-        </ScrollView>
+                {/* About */}
+                <Text style={[styles.sectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('about')}</Text>
+                <Card style={styles.settingsGroup} variant="outlined">
+                    <SettingItem 
+                        icon="help-circle" 
+                        label={t('helpSupport')} 
+                        onPress={() => navigation.navigate('Help')} 
+                    />
+                    <SettingItem 
+                        icon="information-circle" 
+                        label={t('termsConditions')} 
+                        onPress={() => navigation.navigate('Terms')} 
+                    />
+                </Card>
+                
+                <Text style={styles.versionText}>Version 1.0.0</Text>
+                <View style={{ height: 40 }} />
+            </ScrollView>
+        </View>
     );
 };
 
@@ -138,139 +168,92 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
-    content: {
-        padding: SPACING.m,
+    header: {
         paddingTop: 50,
-        paddingBottom: 100,
-    },
-    title: {
-        fontSize: 24,
-        fontFamily: FONTS.bold,
-        fontWeight: 'bold',
-        marginBottom: SPACING.l,
-        color: COLORS.text,
-    },
-    section: {
-        marginBottom: SPACING.l,
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.textSecondary,
-        marginBottom: SPACING.s,
-        textTransform: 'uppercase',
-    },
-    item: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        paddingHorizontal: SPACING.m,
+        paddingBottom: SPACING.m,
+        backgroundColor: COLORS.white,
         alignItems: 'center',
-        backgroundColor: COLORS.surface,
-        padding: SPACING.m,
-        borderRadius: 12,
-        marginBottom: SPACING.s,
-        minHeight: 56,
-    },
-    itemLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: SPACING.m,
-        flex: 1,
-    },
-    itemText: {
-        fontSize: 16,
-        color: COLORS.text,
-    },
-    subLabel: {
-        fontSize: 12,
-        color: COLORS.primary,
-        marginTop: 2,
-    },
-    languageToggle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: SPACING.s,
-    },
-    languageText: {
-        fontSize: 14,
-        color: COLORS.primary,
-        fontWeight: '600',
-    },
-    logoutBtn: {
-        backgroundColor: '#FEE2E2',
-        padding: SPACING.m,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: SPACING.l,
-    },
-    logoutText: {
-        color: '#DC2626',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: SPACING.m,
     },
-    modalContent: {
-        backgroundColor: COLORS.surface,
-        width: '100%',
-        maxWidth: 340,
-        borderRadius: 20,
-        padding: SPACING.l,
-        alignItems: 'center',
-    },
-    modalTitle: {
+    headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.text,
-        marginBottom: SPACING.s,
     },
-    modalSubtitle: {
-        fontSize: 14,
-        color: COLORS.textSecondary,
+    content: {
+        padding: SPACING.m,
+    },
+    profileCard: {
+        backgroundColor: COLORS.primary,
+        padding: SPACING.l,
         marginBottom: SPACING.l,
-        textAlign: 'center',
     },
-    input: {
-        width: '100%',
-        backgroundColor: COLORS.background,
-        padding: SPACING.m,
-        borderRadius: 12,
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        color: COLORS.primary,
-        marginBottom: SPACING.xl,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        gap: SPACING.m,
-        width: '100%',
-    },
-    modalButton: {
-        flex: 1,
-        padding: SPACING.m,
-        borderRadius: 12,
+    profileInfo: {
         alignItems: 'center',
     },
-    cancelButton: {
-        backgroundColor: COLORS.background,
+    avatar: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    saveButton: {
-        backgroundColor: COLORS.primary,
+    userName: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.white,
     },
-    cancelButtonText: {
+    userEmail: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 4,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
         color: COLORS.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginTop: SPACING.l,
+        marginBottom: SPACING.s,
+        paddingHorizontal: 4,
+    },
+    settingsGroup: {
+        padding: 0,
+        overflow: 'hidden',
+    },
+    item: {
+        padding: SPACING.m,
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.surfaceVariant,
+    },
+    itemIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    itemText: {
+        flex: 1,
+        fontSize: 16,
+        color: COLORS.text,
+        marginHorizontal: SPACING.m,
+    },
+    itemValue: {
+        fontSize: 14,
+        color: COLORS.primary,
         fontWeight: '600',
     },
-    saveButtonText: {
-        color: '#FFF',
-        fontWeight: '600',
-    },
+    versionText: {
+        textAlign: 'center',
+        color: COLORS.textMuted,
+        fontSize: 12,
+        marginTop: SPACING.xl,
+    }
 });
 
 export default AccountScreen;
